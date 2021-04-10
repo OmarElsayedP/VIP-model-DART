@@ -1,0 +1,13 @@
+set multiplot layout 3,1 rowsfirst
+
+plot "../data/currentCom.txt" using 5 with lines title "measured CoM y" lw 2, \
+     "../data/desiredCom.txt" using 5 with lines title "desired CoM y" lw 2
+
+plot "../data/currentComAcc.txt" using 2 with lines title "measured CoM Acc y" lw 2, \
+     "../data/desiredComAcc.txt" using 2 with lines title "desired CoM Acc y" lw 2, \
+     "../data/jacobianComAcc.txt" using 5 with lines title "jacobian CoM Acc y" lw 2
+
+plot "../data/measuredZmp.txt" using 2 with lines title "measured ZMP y" lw 2, \
+     "../data/desiredZmp.txt" using 2 with lines title "desired ZMP y" lw 2
+
+pause -1 "Hit any key to continue"

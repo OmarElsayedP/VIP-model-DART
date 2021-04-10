@@ -1,0 +1,9 @@
+#set multiplot layout 3,1 rowsfirst
+
+plot "../data/debug.txt" using 1 with lines title "1" lw 2, \
+     "../data/debug.txt" using 2 with lines title "2" lw 2, \
+     "../data/debug.txt" using 3 with lines title "3" lw 2, \
+     "../data/debug.txt" using 4 with lines title "4" lw 2, \
+     "../data/debug.txt" using 5 with lines title "5" lw 2
+
+pause -1 "Hit any key to continue"
