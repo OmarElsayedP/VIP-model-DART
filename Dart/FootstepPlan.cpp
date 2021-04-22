@@ -16,6 +16,16 @@ void FootstepPlan::plan(std::vector<Vref> vrefSequence, Eigen::VectorXd initialL
     //     // std::cout << i << '\n';
     // }
 
+        // for (int i = 0; i < nFootsteps; i++) {
+        //     // it is in world frame!
+        //     Eigen::VectorXd tempFootstep(7);
+        //     if (i<2) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*50;
+        //     else tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*50;
+        //     // if (i<2) tempFootstep << 0.0, pow(-1,i+1)*0.08, 0.0, 0.0, 0.0, 0.0, i*50;
+        //     // else tempFootstep << (i-1)*0.1, pow(-1,i+1)*0.08, 0.0, 0.0, 0.0, 0.0, i*50;
+        //     footstepPlan.push_back(tempFootstep);
+        // }
+
 
         for (int i = 0; i < nFootsteps; i++) {
             // it is in world frame!
@@ -26,6 +36,7 @@ void FootstepPlan::plan(std::vector<Vref> vrefSequence, Eigen::VectorXd initialL
             // else tempFootstep << (i-1)*0.1, pow(-1,i+1)*0.08, 0.0, 0.0, 0.0, 0.0, i*50;
             footstepPlan.push_back(tempFootstep);
         }
+        // std::cout << "footstepPlan = " << footstepPlan;
 }
 
 // .at(i) returns value of index i of a std vector

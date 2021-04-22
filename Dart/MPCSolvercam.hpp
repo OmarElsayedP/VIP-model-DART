@@ -13,18 +13,17 @@
 
 class MPCSolvercam{
     public:
-    MPCSolvercam(FootstepPlan* _footstepPlann, int sim, bool VIP);
+    MPCSolvercam(FootstepPlan* _footstepPlann, int sim, bool angleConstraint, double torsomass, Eigen::Matrix3d MOI, Eigen::Vector3d theta_max);
     ~MPCSolvercam();
 
     // Compute the next desired state starting from the current state
-    State solve(State current, State current_cam, WalkState walkState, double vRefX, double vRexfY, double omegaRef, double fx, double mass);
+    State solve(State current, State current_cam, WalkState walkState, double mass);
 
     // some stuff
     int itr;
     int fsCount, old_fsCount, adaptation_memo, ds_samples, ct;
-    int prova, sim, robust;
-    bool VIP;
-    Eigen::VectorXd push;
+    int sim;
+    bool angleConstraint;
 
     double xz_dot, yz_dot, xz_dot_cam, yz_dot_cam;
 
@@ -32,6 +31,10 @@ class MPCSolvercam{
     // Matrices for prediction
     Eigen::VectorXd p;
     Eigen::MatrixXd P;
+    Eigen::VectorXd pmg;
+    Eigen::MatrixXd Pmg;
+    Eigen::MatrixXd Pthdd;
+
     Eigen::MatrixXd Vu;
     Eigen::MatrixXd Vs;
 
@@ -49,9 +52,9 @@ class MPCSolvercam{
     Eigen::VectorXd bZmpMin_cam;
 
     //Matricies for angle constraint
-    Eigen::MatrixXd Aang;
-    Eigen::VectorXd bangMax;
-    Eigen::VectorXd BangMin;
+    Eigen::MatrixXd AAngleconstr;
+    Eigen::VectorXd bAngleConstrMin;
+    Eigen::VectorXd bAngleConstrMax;
 
     // Matrices for the stacked constraints
     Eigen::MatrixXd AConstraintcam;
@@ -63,4 +66,12 @@ class MPCSolvercam{
 
     // Midpoint of ZMP constraint
     Eigen::VectorXd x_midpoint, y_midpoint;
+
+    Eigen::Vector3d theta_max;
+    Eigen::Vector3d currentTheta;
+    Eigen::Vector3d currentThetaD;
+    Eigen::Vector3d currentThetaDD;
+
+    Eigen::Matrix3d MOI;
+    Eigen::Vector3d desiredTorque;
 };

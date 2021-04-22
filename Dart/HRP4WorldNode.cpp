@@ -35,6 +35,12 @@ void HRP4WorldNode::customPreStep()
   mController->update();
 }
 
+void HRP4WorldNode::customPostStep()
+{
+  // if(VIP_global)
+  // mController->update();
+}
+
 //==============================================================================
 void HRP4WorldNode::reset()
 {

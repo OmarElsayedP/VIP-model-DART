@@ -4,6 +4,8 @@ static std::ofstream foutDebug(realpath("../data/debug.txt", NULL), std::ofstrea
 
 MPCSolver::MPCSolver(FootstepPlan* _footstepPlan, int sim, bool CAM) : footstepPlan(_footstepPlan) {
 
+    // std::cout << "MEOWWWW" << std::endl;
+
     this-> sim = sim;
     VIP = CAM;
     ds_samples = doubleSupportSamples;
@@ -141,7 +143,6 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
         std::cout << "FOOTSTEP HAS CHANGED" << '\n';
         std::cout << "footstepCounter = "<< walkState.footstepCounter << '\n';
     }
-        std::cout << "footstepCounter = "<< walkState.footstepCounter << '\n';
 
     std::vector<Eigen::VectorXd> fp = footstepPlan->getPlan();
 
@@ -547,7 +548,8 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     next.comVel = Eigen::Vector3d(nextStateX(1), nextStateY(1), 0.0);
     next.zmpPos = Eigen::Vector3d(nextStateX(2), nextStateY(2), 0.0);
     next.comAcc = omega*omega * (next.comPos - next.zmpPos);
-    next.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
+
+    if(!VIP_global)next.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
 
     xz_dot = zDotOptimalX(0);
     yz_dot = zDotOptimalY(0);

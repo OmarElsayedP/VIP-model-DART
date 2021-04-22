@@ -38,7 +38,7 @@ const double qVy = 0;//100;
 const double qZ = 0; ////0;//1;
 const double qF = 10000000;//100;
 
-const double qZd_cam = 1;
+const double qZd_cam = 1000;
 
 // Kinematic control
 const double IKerrorGain = 1.0; //0.99;  1.0
@@ -54,3 +54,7 @@ const int M = 4; //ceil(N/(S+D));
 // const int M = ceil(N/(S+D))+1;
 const int doubleSupportSamples = 20;
 const double forceLimit = 100;
+
+const bool VIP_global = true;
+const bool angleConstraint = true;
+const double forceLimittorques = 100.0;

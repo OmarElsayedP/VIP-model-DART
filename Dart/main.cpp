@@ -45,7 +45,12 @@ int main(int argc, char* argv[])
   //THis is the step where we go into the update() function in Controller
   osg::ref_ptr<HRP4WorldNode> node = new HRP4WorldNode(world, hrp4);
   // std::cout << "main after new world BUT BEFORE numperstepscycle" << '\n';
-  node->setNumStepsPerCycle(1);
+
+// if(VIP_global) 
+  // node->setNumStepsPerCycle(2);
+// else
+ node->setNumStepsPerCycle(1);
+  
   // Create a Viewer and set it up with the WorldNode
   dart::gui::osg::ImGuiViewer viewer;
   viewer.addWorldNode(node);

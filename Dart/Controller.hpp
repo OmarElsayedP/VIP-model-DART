@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 #include "dart/dart.hpp"
 #include "MPCSolver.hpp"
 #include "MPCSolvercam.hpp"
@@ -38,17 +39,25 @@ public:
 
   Eigen::VectorXd getJointVelocitiesStacked(Eigen::VectorXd, Eigen::VectorXd,
       Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
+
+  Eigen::VectorXd getJointVelocitiesDoublePendulum(Eigen::VectorXd, Eigen::VectorXd,
+      Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
   
-  Eigen::VectorXd getJointVelocitiesStackedcam(Eigen::VectorXd, Eigen::VectorXd, 
-    Eigen::VectorXd);
+    Eigen::VectorXd getJointVelocitiesStacked_worldframe(Eigen::VectorXd, Eigen::VectorXd,
+      Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
+
+  Eigen::VectorXd getJointVelocitiesStackedcam(Eigen::VectorXd, Eigen::VectorXd,
+      Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
 
   Eigen::Vector3d getRPY(dart::dynamics::BodyNode*, dart::dynamics::BodyNode*);
   Eigen::Vector3d getRPY(dart::dynamics::BodyNode*);
 
   void storeData();
-  Eigen::Vector3d computeTorques(const State& desired_cam,const State& desired);
+  Eigen::Vector3d computeTorques();
   Eigen::Vector3d computeAngularMomentum();
   Eigen::Matrix3d getMomentOfInertia();
+  Eigen::MatrixXd getTorsoAndSwfJacobian_worldframe();
+  
   virtual void keyboard(unsigned char _key, int _x, int _y);
 
 private:
@@ -62,9 +71,10 @@ private:
   bool TORSO = false;
   bool COM = true;
   int sim_;
-  bool VIP = false;
+  bool isDoublePendulum = false;
   bool VIPsturn = false;
   double mRobotMass;
+  Eigen::VectorXd prevQdot;
   Eigen::Vector3d mAngularVelocity;
   Eigen::Vector3d mAngularPosition;
 
@@ -91,6 +101,15 @@ private:
   double px, py;
   double fx = 0.0;
   double fy = 0.0;
+
+  double xcom_tot;
+  double ycom_tot;
+
+  double xdcom_tot;
+  double ydcom_tot;
+
+  double xacom_tot;
+  double yacom_tot;
   
   StateFiltering* Filter;
   
