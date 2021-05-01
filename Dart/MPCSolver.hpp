@@ -17,7 +17,7 @@ class MPCSolver{
     ~MPCSolver();
 
     // Compute the next desired state starting from the current state
-    State solve(State current, State current_cam, WalkState walkState, double vRefX, double vRexfY, double omegaRef, double fx, double mass);
+    State solve(State current, State current_cam, WalkState walkState, double vRefX, double vRexfY, double omegaRef, Eigen::VectorXd virtualNoise, double mass);
 
     // some stuff
     int itr;

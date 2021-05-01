@@ -57,6 +57,7 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
 
 
     bool firstSupportFootIsLeft = false;
+    walkState.supportFoot = firstSupportFootIsLeft;
     Eigen::VectorXd leftFootPose(6), rightFootPose(6);
     leftFootPose << getRPY(mLeftFoot), mLeftFoot->getCOM();
     rightFootPose << getRPY(mRightFoot), mRightFoot->getCOM();
@@ -65,19 +66,24 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     footstepPlan->plan(vrefSequence, leftFootPose, rightFootPose, firstSupportFootIsLeft);
 
     Eigen::Vector3d maxTheta = Eigen::Vector3d::Zero(3);
-    maxTheta << M_PI/4, M_PI/4, 0.0;
-    // maxTheta << M_PI*4, M_PI*4, 0.0;
-
+    // maxTheta << M_PI/18, M_PI/18, 0.0;
+    maxTheta << M_PI/18.0, M_PI/18.0, 0.0;
+// std::cout << "M_PI =" << M_PI << std::endl;
     // maxTheta << 0.2, 0.2, 0.2;
     
     Eigen::Matrix3d momentOfInertia;
-    momentOfInertia << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
-    -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
-     0.045048560212699, 0.003172978374495, 0.048160214086886;
+    // momentOfInertia << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
+    // -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
+    //  0.045048560212699, 0.003172978374495, 0.048160214086886;
+
+          momentOfInertia << 0.344345670122806, 0.0, 0.0, 
+    0.0, 0.338324801980916, 0.0,
+     0.0, 0.0, 0.048160214086886;
+
 
     // Instantiate MPC solver
     if(isDoublePendulum)
-        solver_cam = new MPCSolvercam(footstepPlan,1,angleConstraint, mTorso->getMass(), momentOfInertia, maxTheta);
+        solver_cam = new MPCSolvercam(footstepPlan, 1, angleConstraint, mTorso->getMass(), momentOfInertia, maxTheta);
     solver = new MPCSolver(footstepPlan,1,false);
 // }
     current.comPos << 0.0,0.0,0.0;
@@ -89,19 +95,21 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     desired.comPos = Eigen::Vector3d(current.comPos(0), current.comPos(1), comTargetHeight);
     desired.comVel = Eigen::Vector3d::Zero();
     desired.zmpPos = Eigen::Vector3d(current.comPos(0), current.comPos(1),0.0);
-    desired.leftFootPos = Eigen::Vector3d(0.0, 0.08, 0.0);
-    desired.rightFootPos = Eigen::Vector3d(0.0, -0.08, 0.0);
+    desired.leftFootPos = Eigen::Vector3d(0.0, 0.075, 0.0);
+    desired.rightFootPos = Eigen::Vector3d(0.0, -0.075, 0.0);
     desired.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
     desired.leftFootOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
     desired.rightFootOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
     desired.comAcc = omega*omega * (desired.comPos - desired.zmpPos);
 
+    desiredWithNoise = desired;
+
     //Desired cam values
     desired_cam.comPos = Eigen::Vector3d(current_cam.comPos(0), current_cam.comPos(1), comTargetHeight);
     desired_cam.comVel = Eigen::Vector3d::Zero();
     desired_cam.zmpPos = Eigen::Vector3d(0.0, 0.0,0.0);
-    desired_cam.leftFootPos = Eigen::Vector3d(0.0, 0.08, 0.0);
-    desired_cam.rightFootPos = Eigen::Vector3d(0.0, -0.08, 0.0);
+    desired_cam.leftFootPos = Eigen::Vector3d(0.0, 0.075, 0.0);
+    desired_cam.rightFootPos = Eigen::Vector3d(0.0, -0.075, 0.0);
     desired_cam.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
     desired_cam.leftFootOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
     desired_cam.rightFootOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
@@ -138,8 +146,86 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     ycom_tot = 0.0;
     xdcom_tot = 0.0;
     ydcom_tot = 0.0;
-    xacom_tot = 0.0;
-    yacom_tot = 0.0;
+    xzcom_tot = 0.0;
+    yzcom_tot = 0.0;
+
+    virt_torq = Eigen::Vector2d::Zero();
+    virt_torq_zeros_allthetime = Eigen::Vector2d::Zero();
+
+    ofstream myfile;
+
+        myfile.open("../txts/x_RF.txt", ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/y_RF.txt", ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/x_m.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/y_m.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xz_m_cop.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yz_m_cop.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/x.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/y.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xz.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yz.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xd.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yd.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xd_m.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yd_m.txt",ios::trunc);
+        myfile.close();
+
+    
+        myfile.open ("../txts/xcam.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/ycam.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xzcam.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yzcam.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xdcam.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/ydcam.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/virt_torqx.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/virt_torqy.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/desiredTorsoVelocity_x.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoVelocity_y.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoVelocity_z.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_x.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_y.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_z.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/xwithnoise.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/ywithnoise.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/xzwithnoise.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yzwithnoise.txt",ios::trunc);
+        myfile.close();
 }
 
 Controller::~Controller() {}
@@ -149,7 +235,7 @@ Controller::~Controller() {}
 void Controller::update() {
         // std::cout << "VIPsturn = " << VIPsturn << std::endl;
     // STOP EXECUTION AFTER 6 SECONDS
-    if (mWorld->getSimFrames() == 3000) exit(1);
+    if (mWorld->getSimFrames() == 300) exit(1);
 
     // if(mWorld->getSimFrames() == 20){
     //     for(int i = 0; i<mRobot->getNumDofs(); i++)
@@ -157,13 +243,13 @@ void Controller::update() {
     //         std::cout << "i = "<< i << ", Bodynode is = " << mRobot->getDof(i)->getName() << std::endl;
     //     }
     // }
-    auto visualShapeNodes = mTorso->getShapeNodesWith<VisualAspect>();
+    // auto visualShapeNodes = mTorso->getShapeNodesWith<VisualAspect>();
 
-    if (mWorld->getSimFrames()==100)
-        {
-            // mTorso->addExtForce(Eigen::Vector3d(2000,0,0));
-            std::cout << "Got it" << std::endl;
-        }
+    // if (mWorld->getSimFrames()>=100)
+        // {
+            // mTorso->addExtForce(Eigen::Vector3d(700,200,0));
+            // std::cout << "Got it" << std::endl;
+        // }
     // if(visualShapeNodes.size() == 3u )
     // {
     // //assert(visualShapeNodes[2]->getShape() == mArrow);
@@ -254,8 +340,41 @@ void Controller::update() {
 
             // std::cout << "solver->ct = " << solver->ct;
 // }
+            // desired_cam.comPos(0) = (mRobot->getCOM()(0) - desired.comPos(0));
+            // desired_cam.comPos(1) = (mRobot->getCOM()(1) - desired.comPos(1));
 
-    desired = solver->solve(desired, desired_cam, walkState, 0.0, 0.0, 0.0, 0.0, 0.0);
+            // desired.comPos(0) += (mRobot->getCOM()(0) - desired_cam.comPos(0));
+            // desired.comPos(1) += (mRobot->getCOM()(1) - desired_cam.comPos(1));
+            
+            // desired.comVel(0) += (mRobot->getCOMLinearVelocity()(0) - desired_cam.comVel(0));
+            // desired.comVel(1) += (mRobot->getCOMLinearVelocity()(1) - desired_cam.comVel(1));
+
+            // desired.comAcc(0) += (mRobot->getCOMLinearAcceleration()(0) - desired_cam.comAcc(0));
+            // desired.comAcc(1) += (mRobot->getCOMLinearAcceleration()(1) - desired_cam.comAcc(1));
+
+            // desired.zmpPos = desired.comPos - desired.comAcc / (omega*omega);
+
+    //     if(j>50)
+// %         virt_torq(1,j) = -0.0005*sin(j*0.01*4*pi-pi/2);
+//         virt_torq(1,j) = -0.0005*sin(j*0.01*4*pi-pi);
+//         end
+//     virt_torq(2,j) = -0.0005*sin(j*0.01*2*pi-4*pi/5);
+// if((solver->ct) % 50 == 0)
+    //     if(j>50)
+    //     % virt_torq(1,j) = -0.0005*sin(j*0.01*4*pi-pi/2);
+    //     virt_torq(1,j) = -0.0005*sin(j*0.01*4*pi-pi);
+    //     end
+    // virt_torq(2,j) = -0.0005*sin(j*0.01*2*pi-4*pi/5);
+
+    // if(walkState.simulationTime+1 <= 49)
+    //     virt_torq << 0.0, -0.0005*sin((walkState.simulationTime+1)*0.01*2*M_PI-4*M_PI/5);
+    // else   
+    //     virt_torq << -0.0005*sin((walkState.simulationTime+1)*0.01*4*M_PI-M_PI), -0.0005*sin((walkState.simulationTime+1)*0.01*2*M_PI-4*M_PI/5);
+// cout << "walkState.simulationTime = " << walkState.simulationTime << endl;
+    desiredWithNoise = solver->solve(desired, desired_cam, walkState, 0.0, 0.0, 0.0, virt_torq, 0.0);
+
+    desired = solver->solve(desired, desired_cam, walkState, 0.0, 0.0, 0.0, virt_torq_zeros_allthetime, 0.0);
+
 // else     desired = solver->solve(current, desired_cam, walkState, 0.0, 0.0, 0.0, 0.0, 0.0);
 
          // we start from desired because mpc is open loop right now
@@ -321,7 +440,7 @@ void Controller::update() {
         Eigen::Vector3d angularAcceleration = Eigen::Vector3d::Zero();
         // std::cout << "2"<<std::endl;
         if(isDoublePendulum){
-
+// std::cout << "torso mass = " << mTorso->getMass() << endl;
             // if ((solver_cam->ct) % 10 == 0 && walkState.footstepCounter > 1 && (solver_cam->ct) >= 0 ) {
 
         //         desired_cam.comPos(0) += 0.3* (mRobot->getCOM()(0) - desired.comPos(0) - desired_cam.comPos(0));
@@ -364,26 +483,61 @@ void Controller::update() {
     //     Eigen::Vector3d pos = mTorso->getCOM();
     //     Eigen::Vector3d vel = mTorso->getCOMLinearVelocity();
 
-    //     desired_cam.comPos(0) += 0.125 * (current.comPos(0) - desired_cam.comPos(0));
-    //     desired_cam.comVel(0) += 0.125 * (current.comVel(0) - desired_cam.comVel(0));
-    //     desired_cam.comPos(1) += 0.125 * (current.comPos(1) - desired_cam.comPos(1));
-    //     desired_cam.comVel(1) += 0.125 * (current.comVel(1) - desired_cam.comVel(1));
+        // desired_cam.comPos(0) += 0.125 * (current.comPos(0) - desired_cam.comPos(0));
+        // desired_cam.comVel(0) += 0.125 * (current.comVel(0) - desired_cam.comVel(0));
+        // desired_cam.comPos(1) += 0.125 * (current.comPos(1) - desired_cam.comPos(1));
+        // desired_cam.comVel(1) += 0.125 * (current.comVel(1) - desired_cam.comVel(1));
 
     //     // desired.leftFootPos += 0*0.02 * (current.leftFootPos - desired.leftFootPos);
     //     // desired.rightFootPos += 0*0.02 * (current.rightFootPos - desired.rightFootPos);
-    // }
-            // desired_cam.comAcc(0) = xacom_tot - desired.comAcc(0);
-            // desired_cam.comAcc(1) = yacom_tot - desired.comAcc(1);
+    // // }
+            // desired_cam.comPos(0) = mRobot->getCOM()(0) - desired.comPos(0);
+            // desired_cam.comPos(1) = mRobot->getCOM()(1) - desired.comPos(1);
 
-            // desired_cam.comPos(0) += 0.1* (mRobot->getCOM()(0) - desired.comPos(0) - desired_cam.comPos(0));
-            // desired_cam.comPos(1) += 0.1* (mRobot->getCOM()(1) - desired.comPos(1) - desired_cam.comPos(1));
+            // desired_cam.comPos(0) = 0.1* (mRobot->getCOM()(0) - desired.comPos(0));
+            // desired_cam.comPos(1) = 0.1* (mRobot->getCOM()(1) - desired.comPos(1));
+            
+            // desired_cam.comVel(0) = 0.1* (mRobot->getCOMLinearVelocity()(0) - desired.comVel(0));
+            // desired_cam.comVel(1) = 0.1* (mRobot->getCOMLinearVelocity()(1) - desired.comVel(1));
 
-            // desired_cam.comVel(0) += 0.1* (mRobot->getCOMLinearVelocity()(0) - desired.comVel(0) - desired_cam.comVel(0));
-            // desired_cam.comVel(1) += 0.1* (mRobot->getCOMLinearVelocity()(1) - desired.comVel(1) - desired_cam.comVel(1));
+            // desired_cam.comAcc(0) = 0.1* (mRobot->getCOMLinearAcceleration()(0) - desired.comAcc(0));
+            // desired_cam.comAcc(1) = 0.1* (mRobot->getCOMLinearAcceleration()(1) - desired.comAcc(1));
+
+            // desired_cam.zmpPos = desired_cam.comPos - desired_cam.comAcc / (omega*omega);
 
 
+            // desired_cam.comPos(0) += (mRobot->getCOM()(0) - desired.comPos(0));
+            // desired_cam.comPos(1) += (mRobot->getCOM()(1) - desired.comPos(1));
+            
+            // desired_cam.comVel(0) += (mRobot->getCOMLinearVelocity()(0) - desired.comVel(0));
+            // desired_cam.comVel(1) += (mRobot->getCOMLinearVelocity()(1) - desired.comVel(1));
 
-        desired_cam = solver_cam->solve(desired, desired_cam, walkState, mTorso->getMass()); // we start from desired because mpc is open loop right now;
+            // desired_cam.comAcc(0) += (mRobot->getCOMLinearAcceleration()(0) - desired.comAcc(0));
+            // desired_cam.comAcc(1) += (mRobot->getCOMLinearAcceleration()(1) - desired.comAcc(1));
+
+            // desired_cam.zmpPos = desired_cam.comPos - desired_cam.comAcc / (omega*omega);
+
+        desired_cam.comPos(0) += desiredWithNoise.comPos(0) - desired.comPos(0);
+        desired_cam.comPos(1) += desiredWithNoise.comPos(1) - desired.comPos(1);
+
+        desired_cam.comVel(0) += desiredWithNoise.comVel(0) - desired.comVel(0);
+        desired_cam.comVel(1) += desiredWithNoise.comVel(1) - desired.comVel(1);
+
+        desired_cam.zmpPos(0) += desiredWithNoise.zmpPos(0) - desired.zmpPos(0);
+        desired_cam.zmpPos(1) += desiredWithNoise.zmpPos(1) - desired.zmpPos(1);
+// std::cout << "desired_cam = " << desired_cam << std::endl;
+
+        desired_cam = solver_cam->solve(desired, desired_cam, walkState, mTorso->getMass(), mRobot, xcom_tot, ycom_tot, mAngularPosition, mAngularVelocity); // we start from desired because mpc is open loop right now;
+
+        xcom_tot = desiredWithNoise.comPos(0) + desired_cam.comPos(0);
+        ycom_tot = desiredWithNoise.comPos(1) + desired_cam.comPos(1);        
+
+        xdcom_tot = desiredWithNoise.comVel(0) + desired_cam.comVel(0);
+        ydcom_tot = desiredWithNoise.comVel(1) + desired_cam.comVel(1);        
+
+        xzcom_tot = desiredWithNoise.zmpPos(0) + desired_cam.zmpPos(0);
+        yzcom_tot = desiredWithNoise.zmpPos(1) + desired_cam.zmpPos(1);        
+
         // current_cam.comPos = desired_cam.comPos;
         desiredTorques = computeTorques();
         angularAcceleration = MOI.inverse()*desiredTorques;
@@ -392,7 +546,7 @@ void Controller::update() {
         desired_cam.torsoOrient = mAngularPosition;
         desired.torsoOrient = desired_cam.torsoOrient;
         // std::cout << "desired_cam.comAcc = " << desired_cam.comAcc << std::endl;
-        // std::cout << "desired.torsoOrient=" << desired.torsoOrient << std::endl;
+        std::cout << "desired_cam.torsoOrient=" << desired_cam.torsoOrient << std::endl;
 
         // desired_cam.comVel = mAngularVelocity;
     //     qDot =  getJointVelocitiesStackedcam(desired_cam.getRelComPose(walkState.supportFoot), current_cam.getRelComPose(walkState.supportFoot),
@@ -422,15 +576,6 @@ void Controller::update() {
 
 // std::cout << "ANg vel = " << mAngularVelocity;
 // std::cout << "Torso orient = " << desired.torsoOrient;
-        // xcom_tot = desired.comPos(0) + desired_cam.comPos(0);
-        // ycom_tot = desired.comPos(1) + desired_cam.comPos(1);        
-
-        // xdcom_tot = desired.comVel(0) + desired_cam.comVel(0);
-        // ydcom_tot = desired.comVel(1) + desired_cam.comVel(1);        
-
-        // xacom_tot = desired.comAcc(0) + desired_cam.comAcc(0);
-        // yacom_tot = desired.comAcc(1) + desired_cam.comAcc(1);        
-
 
         qDot =  getJointVelocitiesDoublePendulum(desired.getRelComPose(walkState.supportFoot), current.getRelComPose(walkState.supportFoot),
          desired.getRelSwingFootPose(walkState.supportFoot), current.getRelSwingFootPose(walkState.supportFoot), desired.comVel, mAngularVelocity);
@@ -443,17 +588,17 @@ void Controller::update() {
     // Eigen::VectorXd qDot =  getJointVelocitiesStacked(desired.getRelComPose(walkState.supportFoot),  current.getRelComPose(walkState.supportFoot),
     // desired.getRelSwingFootPose(walkState.supportFoot),  current.getRelSwingFootPose(walkState.supportFoot), desired.comVel, Eigen::Vector3d::Zero(3));
 
-    // // Set the velocity of the floating base to zero
-    for (int i = 0; i < 6; ++i){
-        mRobot->setCommand(i, 0);
-    }
+    // Set the velocity of the floating base to zero
+    // for (int i = 0; i < 6; ++i){
+    //     mRobot->setCommand(i, 0);
+    // }
 
-    // Set the velocity of each joint as per inverse kinematics
-    // std::cout << mWorld->getSimFrames()<<std::endl;
-    for (int i = 0; i < 50; ++i){
-        mRobot->setCommand(i+6,qDot(i)); //velocity joint control
-    // std::cout << "qdot of "<< mRobot->getDof(i+6)->getName() << " = " << qDot(i) << std::endl;
-    }
+    // // Set the velocity of each joint as per inverse kinematics
+    // // std::cout << mWorld->getSimFrames()<<std::endl;
+    // for (int i = 0; i < 50; ++i){
+    //     mRobot->setCommand(i+6,qDot(i)); //velocity joint control
+    // // std::cout << "qdot of "<< mRobot->getDof(i+6)->getName() << " = " << qDot(i) << std::endl;
+    // }
 
     // Store the results in files (for plotting)
     //storeData();
@@ -489,6 +634,17 @@ void Controller::update() {
 // std::cout << "mpcIter = " << walkState.mpcIter << '\n';
 
 // VIPsturn = !VIPsturn;
+    // std::cout << "EH YABA"<< endl;
+        // xcom_tot = desiredWithNoise.comPos(0) + desired_cam.comPos(0);
+        // ycom_tot = desiredWithNoise.comPos(1) + desired_cam.comPos(1);        
+
+        // xdcom_tot = desiredWithNoise.comVel(0) + desired_cam.comVel(0);
+        // ydcom_tot = desiredWithNoise.comVel(1) + desired_cam.comVel(1);        
+
+        // xzcom_tot = desiredWithNoise.zmpPos(0) + desired_cam.zmpPos(0);
+        // yzcom_tot = desiredWithNoise.zmpPos(1) + desired_cam.zmpPos(1);        
+
+    storeData();
 }
 
 
@@ -497,12 +653,25 @@ Eigen::Vector3d Controller::computeTorques()
 {
     Eigen::Vector3d mDesiredTorque = Eigen::Vector3d::Zero(3);
     double totalCOMx, totalCOMy;
-    totalCOMx = mRobot->getCOM()(0);
-    totalCOMy = mRobot->getCOM()(1);
+    // totalCOMx = mRobot->getCOM()(0);
+    // totalCOMy = mRobot->getCOM()(1);
+    totalCOMx = xcom_tot;
+    totalCOMy = ycom_tot;
+
     mDesiredTorque(0) = -desired_cam.zmpPos(1)*mTorso->getMass()*9.81;
     mDesiredTorque(1) = desired_cam.zmpPos(0)*mTorso->getMass()*9.81;
-    mDesiredTorque(2) = ((totalCOMx-desired.zmpPos(0)-desired_cam.zmpPos(0))* mDesiredTorque(0) 
-        + (totalCOMy-desired.zmpPos(1)-desired_cam.zmpPos(1))*mDesiredTorque(1))/comTargetHeight;
+
+    mDesiredTorque(2) = ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
+        + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1))/comTargetHeight;
+
+    // std::cout <<  ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
+    //     + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1))/comTargetHeight << std::endl;
+
+    //     double tempp  = ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
+    //     + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1));
+    //     tempp = tempp/comTargetHeight;
+    //     std::cout << tempp << std::endl;
+
     // mDesiredTorque(2) = 0.0;
 
     // std::cout << "COM acceleration" << desired.comAcc(2) << std::endl;
@@ -529,11 +698,15 @@ Eigen::Matrix3d Controller::getMomentOfInertia(){
 
      mTorso->getInertia().getMoment();
     // std::cout << "mass = " << mTorso->getMass() << std::endl;
-    MOI << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
-    -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
-     0.045048560212699, 0.003172978374495, 0.048160214086886;
+    // MOI << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
+    // -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
+    //  0.045048560212699, 0.003172978374495, 0.048160214086886;
+
+     MOI << 0.344345670122806, 0.0, 0.0, 
+    0.0, 0.338324801980916, 0.0,
+     0.0, 0.0, 0.048160214086886;
     // std::cout << "inertia = " << MOI << std::endl;
-     MOI = (Eigen::MatrixXd::Identity(3,3)) * MOI;
+     // MOI = (Eigen::MatrixXd::Identity(3,3)) * MOI;
     return MOI;
 }
 
@@ -756,8 +929,11 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
         Eigen::VectorXd desider_pos_SwingFoot, Eigen::VectorXd actPosSwingFoot,Eigen::VectorXd desider_com_vel, Eigen::VectorXd desidercam_com_vel){
 
         Eigen::VectorXd ComVref = Eigen::VectorXd::Zero(12);
+        // desidercam_com_vel = Eigen::Vector3d::Zero(3);
      
         ComVref<<desidercam_com_vel(0), desidercam_com_vel(1), desidercam_com_vel(2), desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
+
+// cout << ComVref << endl;
 
     Eigen::VectorXd desired_pos(12);
     desired_pos << desider_pos_base, desider_pos_SwingFoot;
@@ -773,16 +949,40 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
     Eigen::MatrixXd _taskGain = Eigen::MatrixXd::Identity(12,12);
 
 
-        //// VERY GOOD
-    // Torso Orientation
+    //     //// VERY GOOD
+    // // Torso Orientation
+    // _taskGain(0,0) = 1;
+    // _taskGain(1,1) = 1;//0.001;
+    // _taskGain(2,2) = 1;//0;
+
+    // // CoM Position
+    // _taskGain(3,3) = 5;  //0.1  10
+    // _taskGain(4,4) = 5;
+    // _taskGain(5,5) = 5;
+
+    // // Swing Foot Orientation
+    // _taskGain(6,6) = 1;
+    // _taskGain(7,7) = 1;
+    // _taskGain(8,8) = 1;
+
+    // // Swing Foot Position
+    // _taskGain(9,9) = 5;
+    // _taskGain(10,10) = 5;
+    // _taskGain(11,11) = 5;
+
+    
+    // double ikGainvel = 1;
+
+    // double ikGain = 10;
+        // Torso Orientation
     _taskGain(0,0) = 1;
     _taskGain(1,1) = 1;//0.001;
-    _taskGain(2,2) = 1;//0;
+    _taskGain(2,2) = 0.1;//0;
 
     // CoM Position
     _taskGain(3,3) = 5;  //0.1  10
     _taskGain(4,4) = 5;
-    _taskGain(5,5) = 5;
+    _taskGain(5,5) = 1;
 
     // Swing Foot Orientation
     _taskGain(6,6) = 1;
@@ -794,13 +994,13 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
     _taskGain(10,10) = 5;
     _taskGain(11,11) = 5;
 
-    
-    double ikGainvel = 1;
 
-    double ikGain = 10;
+        double ikGain = 10;
+
+
 
     Eigen::VectorXd qDot(50);
-    qDot = PseudoJacobian_tot*(ikGainvel*ComVref+ikGain*_taskGain*(desired_pos - actual_pos));
+    qDot = PseudoJacobian_tot*(ComVref+ikGain*_taskGain*(desired_pos - actual_pos));
 
     return qDot;
 }
@@ -983,6 +1183,8 @@ void Controller::setInitialConfiguration() {
     q[4] = 0.00;
     q[5] = 0.753;
 
+    // q[6] = 25*M_PI/180;
+
     // Right Leg
     q[44] = 0.0;            // hip yaw
     q[45] = 3*M_PI/180;    // hip roll
@@ -1054,53 +1256,142 @@ void Controller::storeData() {
     fout9 << desired.zmpPos.transpose() << std::endl;
 /**/
 
-
+// std::cout << "Eh yasta" << endl;
 
         Eigen::VectorXd COMPOS_meas  = Eigen::VectorXd::Zero(3);
         COMPOS_meas = mRobot->getCOM();
         Eigen::VectorXd COMVEL_meas  = Eigen::VectorXd::Zero(3);
-        COMVEL_meas = mTorso->getCOMLinearVelocity();
+        COMVEL_meas = mRobot->getCOMLinearVelocity();
         Eigen::VectorXd FOOT_meas  = Eigen::VectorXd::Zero(3);
         FOOT_meas = mSupportFoot->getCOM();
 
         Eigen::VectorXd ZMPPOS_meas_cop =  Eigen::VectorXd::Zero(3);
         ZMPPOS_meas_cop = COMPOS_meas - mRobot->getCOMLinearAcceleration()/(omega*omega);
-        ZMPPOS_meas_cop = getZmpFromExternalForces();
+        // ZMPPOS_meas_cop = getZmpFromExternalForces();
         //std::cout << " qui " << ZMPPOS_meas_cop << std::endl;
 
         ofstream myfile;
 
-        myfile.open ("./Data/x_RF.txt",ios::app);
+        myfile.open("../txts/x_RF.txt", ios::app);
         myfile << mSupportFoot->getCOM()(0) <<endl; 
         myfile.close();
-        myfile.open ("./Data/y_RF.txt",ios::app);
+        myfile.open ("../txts/y_RF.txt", ios::app);
         myfile << mSupportFoot->getCOM()(1) <<endl; 
         myfile.close();
 
-        myfile.open ("./Data/x_m.txt",ios::app);
+        myfile.open ("../txts/x_m.txt",ios::app);
         myfile << COMPOS_meas(0) <<endl; 
         myfile.close();
-        myfile.open ("./Data/y_m.txt",ios::app);
+        myfile.open ("../txts/y_m.txt",ios::app);
         myfile << COMPOS_meas(1) <<endl; 
         myfile.close();
-        myfile.open ("./Data/xz_m_cop.txt",ios::app);
+        myfile.open ("../txts/xz_m_cop.txt",ios::app);
         myfile << ZMPPOS_meas_cop(0) <<endl; //current.zmpPos
         myfile.close();
-        myfile.open ("./Data/yz_m_cop.txt",ios::app);
+        myfile.open ("../txts/yz_m_cop.txt",ios::app);
         myfile << ZMPPOS_meas_cop(1) <<endl; 
         myfile.close();
 
-        myfile.open ("./Data/x.txt",ios::app);
+        myfile.open ("../txts/x.txt",ios::app);
         myfile << desired.comPos(0) <<endl; 
         myfile.close();
-        myfile.open ("./Data/y.txt",ios::app);
+        myfile.open ("../txts/y.txt",ios::app);
         myfile << desired.comPos(1) <<endl; 
         myfile.close();
-        myfile.open ("./Data/xz.txt",ios::app);
+
+        myfile.open ("../txts/xwithnoise.txt",ios::app);
+        myfile << desiredWithNoise.comPos(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/ywithnoise.txt",ios::app);
+        myfile << desiredWithNoise.comPos(1) <<endl; 
+        myfile.close();
+
+        myfile.open ("../txts/xz.txt",ios::app);
         myfile << desired.zmpPos(0) <<endl; 
         myfile.close();
-        myfile.open ("./Data/yz.txt",ios::app);
+        myfile.open ("../txts/yz.txt",ios::app);
         myfile << desired.zmpPos(1) <<endl; 
         myfile.close();
+
+        myfile.open ("../txts/xzwithnoise.txt",ios::app);
+        myfile << desiredWithNoise.zmpPos(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/yzwithnoise.txt",ios::app);
+        myfile << desiredWithNoise.zmpPos(1) <<endl; 
+        myfile.close();
+
+        myfile.open ("../txts/xd.txt",ios::app);
+        myfile << desired.comVel(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/yd.txt",ios::app);
+        myfile << desired.comVel(1) <<endl; 
+        myfile.close();
+
+        myfile.open ("../txts/xd_m.txt",ios::app);
+        myfile << mRobot->getCOMLinearVelocity()(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/yd_m.txt",ios::app);
+        myfile << mRobot->getCOMLinearVelocity()(1) <<endl; 
+        myfile.close();
+
+
+        if(isDoublePendulum)
+        {
+        myfile.open ("../txts/xcam.txt",ios::app);
+        myfile << desired_cam.comPos(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/ycam.txt",ios::app);
+        myfile << desired_cam.comPos(1) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/xzcam.txt",ios::app);
+        myfile << desired_cam.zmpPos(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/yzcam.txt",ios::app);
+        myfile << desired_cam.zmpPos(1) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/xdcam.txt",ios::app);
+        myfile << desired_cam.comVel(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/ydcam.txt",ios::app);
+        myfile << desired_cam.comVel(1) <<endl; 
+        myfile.close();
+
+        // myfile.open ("../txts/torquex_desired.txt",ios::app);
+        // myfile << desiredTorques(0) <<endl; 
+        // myfile.close();
+        // myfile.open ("../txts/torquey_desired.txt",ios::app);
+        // myfile << desiredTorques(1) <<endl; 
+        // myfile.close();
+        // myfile.open ("../txts/torquez_desired.txt",ios::app);
+        // myfile << desiredTorques(2) <<endl; 
+        // myfile.close();
+
+        myfile.open ("../txts/desiredTorsoVelocity_x.txt",ios::app);
+        myfile << mAngularVelocity(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoVelocity_y.txt",ios::app);
+        myfile << mAngularVelocity(1) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoVelocity_z.txt",ios::app);
+        myfile << mAngularVelocity(2) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_x.txt",ios::app);
+        myfile << mAngularPosition(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_y.txt",ios::app);
+        myfile << mAngularPosition(1) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/desiredTorsoPosition_z.txt",ios::app);
+        myfile << mAngularPosition(2) <<endl; 
+        myfile.close();
+
+        myfile.open ("../txts/virt_torqx.txt",ios::app);
+        myfile << virt_torq(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/virt_torqy.txt",ios::app);
+        myfile << virt_torq(1) <<endl; 
+        myfile.close();
+
+        }
 /**/
 }

@@ -6,6 +6,7 @@
 #include "MPCSolver.hpp"
 #include "MPCSolvercam.hpp"
 #include "Utility.hpp"
+#include  <iostream>
 #include  <fstream>
 #include "utils.cpp"
 #include "types.hpp"
@@ -89,6 +90,7 @@ private:
 
   State desired;
   State current;
+  State desiredWithNoise;
   State desired_cam;
   State current_cam;
 
@@ -108,8 +110,11 @@ private:
   double xdcom_tot;
   double ydcom_tot;
 
-  double xacom_tot;
-  double yacom_tot;
+  double xzcom_tot;
+  double yzcom_tot;
+
+Eigen::Vector2d virt_torq_zeros_allthetime;
+Eigen::Vector2d virt_torq;
   
   StateFiltering* Filter;
   

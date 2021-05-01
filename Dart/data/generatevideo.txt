@@ -1,3 +1,3 @@
-ffmpeg -framerate 100 -i frame%06d.png -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p hopping.mp4
+ffmpeg -framerate 50 -i frame%06d.png -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p -vf "crop=trunc(iw/2)*2:trunc(ih/2)*2" VME_angle.mp4
 
-rm frame{000000..000609}.png
+rm frame{000000..000651}.png

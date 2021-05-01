@@ -9,7 +9,7 @@
  */
 #pragma once
 #ifndef NO_EIGEN
-#include <Eigen/Dense>
+#include "/usr/include/eigen3/Eigen/Dense"
 #endif
 
 #include <QDebug>

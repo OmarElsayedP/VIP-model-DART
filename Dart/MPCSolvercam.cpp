@@ -5,11 +5,12 @@ static std::ofstream foutDebug(realpath("../data/debug.txt", NULL), std::ofstrea
 MPCSolvercam::MPCSolvercam(FootstepPlan* _footstepPlan, int sim, bool CAM, double torsomass, Eigen::Matrix3d MOI, Eigen::Vector3d theta_max) : footstepPlan(_footstepPlan) {
 
     this-> sim = sim;
-    angleConstraint = CAM;
+    this->CAM = angleConstraint;
     ds_samples = doubleSupportSamples;
 
 
     if(angleConstraint){
+        std::cout<< "HERE!" <<std::endl;
         costFunctionHcam = Eigen::MatrixXd::Zero(4*N,2*N);
         costFunctionFcam = Eigen::VectorXd::Zero(4*N);
         AConstraintcam = Eigen::MatrixXd::Zero(4*N+2,2*N);
@@ -28,7 +29,7 @@ MPCSolvercam::MPCSolvercam(FootstepPlan* _footstepPlan, int sim, bool CAM, doubl
 
         this->MOI = MOI;
 
-        desiredTorque = Eigen::Vector3d::Zero(3);
+        desiredTorque = Eigen::MatrixXd::Zero(3,N);
         this->theta_max = theta_max;
     }
     else{
@@ -53,19 +54,28 @@ MPCSolvercam::MPCSolvercam(FootstepPlan* _footstepPlan, int sim, bool CAM, doubl
     // std::cout << pmg;
 
     P = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep;
-    Pmg = Eigen::MatrixXd::Ones(N,N)*controlTimeStep*torsomass*9.81;
-    Eigen::MatrixXd Pthdd1 = Eigen::MatrixXd::Ones(N,N)*0.5*pow(controlTimeStep,2);
-    Eigen::MatrixXd Pthdd2 = Eigen::MatrixXd::Ones(N,N)*controlTimeStep;
+    Pmg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*torsomass*9.81;
+    Eigen::MatrixXd Pthdd1 = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep;
+    Eigen::MatrixXd Pthdd2 = Eigen::MatrixXd::Ones(N,N)*0.5*pow(mpcTimeStep,2);
 
     for(int i = 0; i < N; ++i) {
     	for(int j = 0; j < N; ++j) {
             if (j > i) P(i, j)=0;
             if (j >= i) Pmg(i, j)=0;
-            if (j > i+1) Pthdd1(i, j) = 0;
-            if(j > i) Pthdd2(i, j) = 0;
+            if (j <= i) Pthdd1(i, j) = 0;
+            if(j < i) Pthdd2(i, j) = 0;
         }
     }
-    Pthdd = Pthdd1*P.transpose() + Pthdd2;
+    // Pthdd1 = Pthdd1.transpose();
+    // Pthdd2 = Pthdd2.transpose();
+
+    // std::cout << "P=" << P << std::endl;
+    Pthdd = (Pthdd1*(P.transpose())) + Pthdd2;
+
+    // std::cout << "Pmg.block(0,0,20,20) = " <<Pmg.block(0,0,20,20) << std::endl;
+    // std::cout << "Pthdd1*(P.transpose()).block(0,0,20,20) = " << (Pthdd1*(P.transpose())).block(0,0,20,20) << std::endl;
+    // std::cout << "Pthdd2.block(0,0,20,20) = " << Pthdd2.block(0,0,20,20) << std::endl;
+    // std::cout << "Pthdd = " << Pthdd.block(0,0,20,20) << std::endl;
 
     double ch = cosh(omega*mpcTimeStep);
     double sh = sinh(omega*mpcTimeStep);
@@ -115,7 +125,8 @@ MPCSolvercam::MPCSolvercam(FootstepPlan* _footstepPlan, int sim, bool CAM, doubl
 
 MPCSolvercam::~MPCSolvercam() {}
 
-State MPCSolvercam::solve(State current, State current_cam, WalkState walkState, double mass) {
+State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkState, double mass, const dart::dynamics::SkeletonPtr& mRobot, double x_tot, double y_tot, 
+    Eigen::Vector3d AngularPosition, Eigen::Vector3d AngularVelocity) {
 
     itr = walkState.mpcIter;
     fsCount = walkState.footstepCounter;
@@ -243,8 +254,8 @@ State MPCSolvercam::solve(State current, State current_cam, WalkState walkState,
     // xzcam_max = 10.0;
     // yzcam_max = 10.0;
 
-        bZmpMin_cam << p*(-xzcam_max-current_cam.zmpPos(0)),p*(-yzcam_max-current_cam.zmpPos(1));
         bZmpMax_cam << p*(xzcam_max-current_cam.zmpPos(0)),p*(yzcam_max-current_cam.zmpPos(1));
+        bZmpMin_cam << p*(-xzcam_max-current_cam.zmpPos(0)),p*(-yzcam_max-current_cam.zmpPos(1));
 
         // std::cout << "xzcam_max = " << xzcam_max << std::endl;
         // std::cout << "yzcam_max = " << yzcam_max << std::endl;
@@ -252,38 +263,84 @@ State MPCSolvercam::solve(State current, State current_cam, WalkState walkState,
         // std::cout << "xzcam_max-current_cam.zmpPos(0) = " << xzcam_max-current_cam.zmpPos(0) << std::endl;
     // Construct the Angle constraint
     // *******************************
+        std::cout << angleConstraint << std::endl;
+        std::cout << CAM << std::endl;
+                    // std::cout << pmg << std::endl;
         if(angleConstraint){
-        desiredTorque << -current_cam.comPos(1)*mass*9.81, current_cam.comPos(0)*mass*9.81, 0.0;
-        currentThetaDD = MOI.inverse()*desiredTorque;
-        currentTheta += currentThetaD*mpcTimeStep + currentThetaDD*0.5*pow(mpcTimeStep,2);
+
+            // std::cout<<"1"<<std::endl;
+            Eigen::RowVectorXd desiredTorqueX, desiredTorqueY, desiredTorqueZ;
+            Eigen::VectorXd desiredTorqueZV;
+            // std::cout<<"2"<<std::endl;
+            desiredTorqueX = -current_cam.zmpPos(1)*pmg.transpose();
+            // std::cout<<"3"<<std::endl;
+            desiredTorqueY = current_cam.zmpPos(0)*pmg.transpose();
+            // std::cout<<"4"<<std::endl;
+
+            // desiredtorqueZ = (((x_tot-no_current.zmpPos(0))*(-current_cam.zmpPos(1))*mass*9.81)
+            //  + (y_tot-no_current.zmpPos(1))*(current_cam.zmpPos(0)*mass*9.81))/comTargetHeight;
+            // std::cout<<"5"<<std::endl;
+            desiredTorqueZV = ((x_tot-no_current.zmpPos(0))*(desiredTorqueX.transpose()) + (y_tot-no_current.zmpPos(1))*(desiredTorqueY.transpose()));
+            // std::cout<<desiredTorqueZV<<std::endl;
+            desiredTorqueZV = desiredTorqueZV/comTargetHeight;
+            // std::cout<<desiredTorqueZV<<std::endl;
+            // std::cout << comTargetHeight << std::endl;
+            // std::cout<<"6"<<std::endl;
+            desiredTorqueZ = desiredTorqueZV.transpose();
+
+            desiredTorque.block(0,0,1,N) = desiredTorqueX;
+            // std::cout<<"7"<<std::endl;
+            desiredTorque.block(1,0,1,N) = desiredTorqueY;
+            // std::cout<<"8"<<std::endl;
+            desiredTorque.block(2,0,1,N) = desiredTorqueZ;
+
+            // std::cout<<"9"<<std::endl;
+            // std::cout << "desiredTorque = " << desiredTorque << std::endl;
+            // std::cout<<"9"<<std::endl;
+
+        currentThetaD = AngularVelocity;
+        currentTheta = AngularPosition;
+
+        // desiredTorque.block(2,0,1,1) << ((x_tot-no_current.zmpPos(0))*desiredTorque(0)+(y_tot-no_current.zmpPos(1))*desiredTorque(1))/comTargetHeight;
+        // std::cout<<"desiredTorque = " << desiredTorque << std::endl;
+        // std::cout << "currentThetaDD = " << currentThetaDD << std::endl;
         // std::cout << "currentTheta = " << currentTheta << std::endl;
         // std::cout << "torsoOrient = " << current_cam.torsoOrient << ", " << current.torsoOrient << std::endl;
-        currentThetaD += currentThetaDD*mpcTimeStep;
 
+        // currentThetaD = mRobot->getCOMLinearVelocity();
+        // currentTheta = mRobot->getCOM();
+        
         // actual current angular values
 
         // Eigen::Vector3d thetaMax << M_PI/6, M_PI/6, M_PI/6;
-        Eigen::MatrixXd rhs = theta_max*(p.transpose())-currentTheta*(p.transpose()) - currentThetaD*(p.transpose()*P.transpose());
-        rhs = MOI*rhs;
-        rhs = rhs - (desiredTorque*p.transpose())*Pthdd;
-        rhs = rhs.block(0,0,2,N);
-        // rhs = rhs.transpose();
-        Eigen::MatrixXd _rhs = rhs.transpose();
+        // std::cout<<"theta_max = "<< theta_max << std::endl;
+        // std::cout << theta_max*(p.transpose()) << std::endl;
+        // std::cout << currentTheta*(p.transpose()) << std::endl;
+        // std::cout << currentThetaD*p.transpose()*P.transpose() << std::endl;
+        Eigen::MatrixXd rhs = MOI*(theta_max*(p.transpose())-currentTheta*(p.transpose()) - currentThetaD*p.transpose()*P.transpose())-desiredTorque*Pthdd;
+        // rhs = MOI*rhs;
+        // rhs = rhs - desiredTorque*Pthdd;
+        Eigen::MatrixXd temprhs = Eigen::MatrixXd::Zero(2,N);
+        temprhs = rhs.block(0,0,2,N);
+        Eigen::MatrixXd _rhs = (temprhs.transpose());
         
-
-        Eigen::MatrixXd lhs = -theta_max*(p.transpose())-currentTheta*(p.transpose()) - currentThetaD*(p.transpose()*P.transpose());
+        Eigen::MatrixXd lhs = -theta_max*(p.transpose())-currentTheta*(p.transpose()) - currentThetaD*p.transpose()*P.transpose();
         lhs = MOI*lhs;
-        lhs = lhs - (desiredTorque*p.transpose())*Pthdd;
-        lhs = lhs.block(0,0,2,N);
-        // lhs = lhs.transpose();
-        Eigen::MatrixXd _lhs = lhs.transpose();
+        lhs = lhs - desiredTorque*Pthdd;
+
+        Eigen::MatrixXd templhs = Eigen::MatrixXd::Zero(2,N);
+        templhs = lhs.block(0,0,2,N);
+        Eigen::MatrixXd _lhs = (templhs.transpose());
+        // _lhs.setZero();
+        // std::cout<< "_lhs.cols(), _lhs.rows() = " << _lhs.rows() << ", " << _lhs.cols() << std::endl;
 
 
-    AAngleconstr.block(0,N,N,N) = -Pthdd.transpose()*Pmg;
-    AAngleconstr.block(N,0,N,N) = Pthdd.transpose()*Pmg;
+    AAngleconstr.block(0,N,N,N) = -(Pthdd.transpose())*Pmg;
+    AAngleconstr.block(N,0,N,N) = (Pthdd.transpose())*Pmg;
+
 
     // std::cout << "AAngleconstr.block(0,0,N,N)" << AAngleconstr.block(0,0,N,N);
-    // std::cout << "AAngleconstr.block(0,N,N,N)" << AAngleconstr.block(0,N,N,N);
+    // std::cout << "AAngleconstr.block(0,N,N,N) =" << AAngleconstr.block(0,N,N,N);
     // std::cout << "AAngleconstr.block(N,0,N,N)" << AAngleconstr.block(N,0,N,N);
     // std::cout << "AAngleconstr.block(N,N,N,N)" << AAngleconstr.block(N,N,N,N);
 
@@ -292,7 +349,9 @@ State MPCSolvercam::solve(State current, State current_cam, WalkState walkState,
         bAngleConstrMin.block(0,0,N,1) = _lhs.block(0,0,N,1);
         bAngleConstrMin.block(N,0,N,1) = _lhs.block(0,1,N,1);
         // std::cout << "Eldapapaaaa" << std::endl;
-        bAngleConstrMax << _rhs.block(0,0,N,1), _rhs.block(0,1,N,1);
+        bAngleConstrMax.block(0,0,N,1) = _rhs.block(0,0,N,1);
+        bAngleConstrMax.block(N,0,N,1) = _rhs.block(0,1,N,1);
+        // bAngleConstrMax << _rhs.block(0,0,N,1), _rhs.block(0,1,N,1);
         
         int nConstraintscam = Aeq_cam.rows() + AZmp_cam.rows() + AAngleconstr.rows();
         AConstraintcam.resize(nConstraintscam, 2*N);
@@ -302,7 +361,6 @@ State MPCSolvercam::solve(State current, State current_cam, WalkState walkState,
     AConstraintcam    << Aeq_cam, AZmp_cam, AAngleconstr;
     bConstraintMincam << beq_cam, bZmpMin_cam, bAngleConstrMin;
     bConstraintMaxcam << beq_cam, bZmpMax_cam, bAngleConstrMax;
-
 }
 else{
     // Stack the constraint matrices
@@ -316,7 +374,21 @@ else{
     bConstraintMincam << beq_cam, bZmpMin_cam;
     bConstraintMaxcam << beq_cam, bZmpMax_cam;
 }
-    // std::cout << AZmp_cam;
+    // Construct the terminal constraint
+    // *******************************
+    // delta_remaining = zeros(1,C);
+    // n_remaining = j - fs_timing(fsCounter) + 1; % According to paper n must be >= 3
+    // %     if(n_remaining > fs_timing(2)-2)
+    // %         n_remaining = fs_timing(2)-2;
+    // %     end
+    // delta_remaining(1,n_remaining:fs_timing(2)) = mpcTimeStep;
+
+    
+    // Atermconstr = [delta_remaining, zeros(1,C); ...
+    //     zeros(1,C), delta_remaining];
+    // btermconstr = [-xzcam; -yzcam];
+    
+
 
     // Construct the cost function
     // ***************************
@@ -341,7 +413,7 @@ else{
     Eigen::VectorXd zDotOptimalY_cam(N);
 
     zDotOptimalX_cam = (decisionVariables.head(N));
-    zDotOptimalY_cam = (decisionVariables.segment(N,N));
+    zDotOptimalY_cam = (decisionVariables.tail(N));
 
     // Update the com-torso state based on the result of the QP
     double ch = cosh(omega*controlTimeStep);

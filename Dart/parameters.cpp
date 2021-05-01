@@ -8,13 +8,14 @@
 // Times
 const double mpcTimeStep = 0.01; //0.05;
 const double controlTimeStep = 0.01;
-const double singleSupportDuration = 0.3;
-const double doubleSupportDuration = 0.2;
+const double singleSupportDuration = 0.25;
+const double doubleSupportDuration = 0.25;
 const double predictionTime = 1.0;
 
 // Walk parameters
 const double stepHeight = 0.03;
-const double comTargetHeight = 0.71; //0.72
+// const double comTargetHeight = 0.71; //0.72
+const double comTargetHeight = 0.75;
 const double kSwingFoot = 0.05; //0.05;
 const int nFootsteps = 20;
 
@@ -38,7 +39,7 @@ const double qVy = 0;//100;
 const double qZ = 0; ////0;//1;
 const double qF = 10000000;//100;
 
-const double qZd_cam = 1000;
+const double qZd_cam = 1;
 
 // Kinematic control
 const double IKerrorGain = 1.0; //0.99;  1.0
@@ -50,11 +51,11 @@ const double omega = sqrt(9.81/comTargetHeight);
 const int N = round(predictionTime/mpcTimeStep);
 const int S = round(singleSupportDuration/mpcTimeStep);
 const int D = round(doubleSupportDuration/mpcTimeStep);
-const int M = 4; //ceil(N/(S+D));
+const int M = 3; //ceil(N/(S+D));
 // const int M = ceil(N/(S+D))+1;
-const int doubleSupportSamples = 20;
+const int doubleSupportSamples = 25;
 const double forceLimit = 100;
 
-const bool VIP_global = true;
-const bool angleConstraint = true;
+const bool VIP_global = 0;
+const bool angleConstraint = 0;
 const double forceLimittorques = 100.0;

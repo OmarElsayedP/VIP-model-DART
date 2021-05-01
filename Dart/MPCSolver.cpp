@@ -11,8 +11,8 @@ MPCSolver::MPCSolver(FootstepPlan* _footstepPlan, int sim, bool CAM) : footstepP
     ds_samples = doubleSupportSamples;
 
     // Matrices for cost function
-    costFunctionH = Eigen::MatrixXd::Zero(2*(N+M),2*(N+M));
-    costFunctionF = Eigen::VectorXd::Zero(2*(N+M));
+    costFunctionH = Eigen::MatrixXd::Zero(2*(N),2*(N));
+    costFunctionF = Eigen::VectorXd::Zero(2*(N));
 if (VIP)
     {
     costFunctionHcam = Eigen::MatrixXd::Zero(2*N,2*N);
@@ -24,27 +24,27 @@ if (VIP)
     beq_cam = Eigen::VectorXd::Zero(2);
     }    
     // Matrices for stability constraint
-    Aeq = Eigen::MatrixXd::Zero(2,(N*2)+(M*2));
+    Aeq = Eigen::MatrixXd::Zero(2,(N*2));
     beq = Eigen::VectorXd::Zero(2);
 
     // Matrices for ZMP constraint
-    AZmp = Eigen::MatrixXd::Zero(2*N,2*(N+M));
+    AZmp = Eigen::MatrixXd::Zero(2*N,2*(N));
     bZmpMax = Eigen::VectorXd::Zero(2*N);
     bZmpMin = Eigen::VectorXd::Zero(2*N);
 
-    // Matrices for feasibility constraint
+    // // Matrices for feasibility constraint
     AFootsteps = Eigen::MatrixXd::Zero(2*M,2*(M+N));
     bFootstepsMax = Eigen::VectorXd::Zero(2*M);
     bFootstepsMin = Eigen::VectorXd::Zero(2*M);
 
     // Matrices for fixed footstep constraint
-    ASwingFoot = Eigen::MatrixXd::Zero(4,(N*2)+(M*2));
+    ASwingFoot = Eigen::MatrixXd::Zero(4,(N*2));
     bSwingFoot = Eigen::VectorXd::Zero(4);
 
     // Matrices for all constraints stacked        
-        AConstraint = Eigen::MatrixXd::Zero(2*(N+M)+2,2*(N+M));
-        bConstraintMin = Eigen::VectorXd::Zero(2*(N+M)+2);
-        bConstraintMax = Eigen::VectorXd::Zero(2*(N+M)+2);
+        AConstraint = Eigen::MatrixXd::Zero(2*(N)+2,2*(N));
+        bConstraintMin = Eigen::VectorXd::Zero(2*(N)+2);
+        bConstraintMax = Eigen::VectorXd::Zero(2*(N)+2);
         if(VIP){
             AConstraintcam = Eigen::MatrixXd::Zero(2*N+2,2*N);
             bConstraintMincam = Eigen::VectorXd::Zero(2*N+2);
@@ -131,7 +131,7 @@ if (VIP)
 
 MPCSolver::~MPCSolver() {}
 
-State MPCSolver::solve(State current, State current_cam, WalkState walkState, double vRefX, double vRefY, double omegaRef, double fx_, double mass) {
+State MPCSolver::solve(State current, State current_cam, WalkState walkState, double vRefX, double vRefY, double omegaRef, Eigen::VectorXd virtualNoise, double mass) {
 
     itr = walkState.mpcIter;
     fsCount = walkState.footstepCounter;
@@ -146,13 +146,14 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
 
     std::vector<Eigen::VectorXd> fp = footstepPlan->getPlan();
 
+// std::cout << walkState.footstepCounter << std::endl;
     // Reset constraint matrices
     AZmp.setZero();
-    AFootsteps.setZero();
-    if(VIP)
-    {
-        AZmp_cam.setZero();
-    }
+    // AFootsteps.setZero();
+    // if(VIP)
+    // {
+    //     AZmp_cam.setZero();
+    // }
 
     // Get the pose of the support foot in the world frame
     Eigen::VectorXd supportFootPose = current.getSupportFootPose(walkState.supportFoot);
@@ -172,7 +173,7 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
         int samplesTillNextFootstep = footstepPlan->getFootstepEndTiming(walkState.footstepCounter + fsAhead) - (footstepPlan->getFootstepStartTiming(walkState.footstepCounter) + walkState.mpcIter + i + 1);
 
         // If it is the current footstep, it does not go in Cc, but subsequent ones do
-        if (samplesTillNextFootstep > ds_samples) {
+        if (samplesTillNextFootstep > ds_samples || footstepPlan->getFootstepStartTiming(walkState.footstepCounter) + walkState.mpcIter + i + 1 < footstepPlan->getFootstepStartTiming(1)) {
             CcFull(i, fsAhead) = 1;
         } else {
             CcFull(i, fsAhead) = (double)samplesTillNextFootstep / (double)ds_samples;
@@ -180,14 +181,16 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
         }
     }
 
+
+
     Eigen::VectorXd currentFootstepZmp = CcFull.col(0);
     Eigen::MatrixXd Cc = CcFull.block(0,1,N,M);
 
     // Construct the Ic matrix, which removes constraints from double support phases
     Eigen::MatrixXd Ic = Eigen::MatrixXd::Identity(N,N);
-    for (int i = 0; i < N; ++i) {
-        if (walkState.footstepCounter == 0 && walkState.mpcIter+i <= footstepPlan->getFootstepEndTiming(0)) Ic(i,i) = 0;
-    }
+    // for (int i = 0; i < N; ++i) {
+    //     if (walkState.footstepCounter == 0 && walkState.mpcIter+i <= footstepPlan->getFootstepEndTiming(0)) Ic(i,i) = 0;
+    // }
 
     // Construct the difference matrix (x_j - x_{j-1})
     Eigen::MatrixXd differenceMatrix = Eigen::MatrixXd::Identity(M,M);
@@ -206,25 +209,14 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     // Construct the stability constraint
     // **********************************
 // Periodic tail
-    // double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
-    // for(int i = 0; i < N; ++i) {
-    //     Aeq(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-    //     Aeq(1,N+M+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-    // }
+    double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
+    for(int i = 0; i < N; ++i) {
+        Aeq(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
+        Aeq(1,N+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
+    }
     
-    // beq << current.comPos(0) + current.comVel(0)/omega - current.zmpPos(0),
-    //        current.comPos(1) + current.comVel(1)/omega - current.zmpPos(1);
-
-//Truncated tail
-    // double lambda_tail = exp(-omega*mpcTimeStep);
-    // for(int i = 0; i < N; ++i) {
-    //     Aeq(0,i)     = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i)-pow(lambda_tail,N)*mpcTimeStep*exp(-omega*mpcTimeStep*N);
-    //     Aeq(0,N+M+i) = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i)-pow(lambda_tail,N)*mpcTimeStep*exp(-omega*mpcTimeStep*N);
-    // }
-    //
-    // beq << current.comPos(0) + current.comVel(0)/omega - current.zmpPos(0),
-    //        current.comPos(1) + current.comVel(1)/omega - current.zmpPos(1);
-    //
+    beq << current.comPos(0) + current.comVel(0)/omega - current.zmpPos(0),
+           current.comPos(1) + current.comVel(1)/omega - current.zmpPos(1);
 
     int prev = 200;
 
@@ -285,40 +277,40 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     // add contribution from the last footstep in the preview horizon (FIXME here we neglect the double support for simplicity)
     // anticipativeTail += footstepPlan->getFootstepPosition(walkState.footstepCounter + lastFootstepNumberPreview) * exp(-omega*lastFootstepTiming * mpcTimeStep);
 
-    // construct stability constraint with anticipative tail
-    for (int i = 0; i < prev; i++) {
-        anticipativeTail(0) += exp(-omega*mpcTimeStep*(N + i)) * (1 - exp(-omega*mpcTimeStep)) * x_midpoint(walkState.mpcIter + N + i);
-        anticipativeTail(1) += exp(-omega*mpcTimeStep*(N + i)) * (1 - exp(-omega*mpcTimeStep)) * y_midpoint(walkState.mpcIter + N + i);
-    }
+    // // construct stability constraint with anticipative tail
+    // for (int i = 0; i < prev; i++) {
+    //     anticipativeTail(0) += exp(-omega*mpcTimeStep*(N + i)) * (1 - exp(-omega*mpcTimeStep)) * x_midpoint(walkState.mpcIter + N + i);
+    //     anticipativeTail(1) += exp(-omega*mpcTimeStep*(N + i)) * (1 - exp(-omega*mpcTimeStep)) * y_midpoint(walkState.mpcIter + N + i);
+    // }
 
-    anticipativeTail(0) += exp(-omega*mpcTimeStep*(N + prev)) * x_midpoint(walkState.mpcIter + N + prev);
-    anticipativeTail(1) += exp(-omega*mpcTimeStep*(N + prev)) * y_midpoint(walkState.mpcIter + N + prev);
+    // anticipativeTail(0) += exp(-omega*mpcTimeStep*(N + prev)) * x_midpoint(walkState.mpcIter + N + prev);
+    // anticipativeTail(1) += exp(-omega*mpcTimeStep*(N + prev)) * y_midpoint(walkState.mpcIter + N + prev);
 
 
-    double stabConstrMultiplier = (1-exp(-omega*mpcTimeStep)) / omega;
+    // double stabConstrMultiplier = (1-exp(-omega*mpcTimeStep)) / omega;
 
-    for(int i = 0; i < N; ++i) {
-        Aeq(0,i)     = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
-        Aeq(1,N+M+i) = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
-    }
+    // for(int i = 0; i < N; ++i) {
+    //     Aeq(0,i)     = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
+    //     Aeq(1,N+i) = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
+    // }
 
-    beq << current.comPos(0) + current.comVel(0)/omega - current.zmpPos(0) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(0) ,
-           current.comPos(1) + current.comVel(1)/omega - current.zmpPos(1) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(1) ;
-/**/
+    // beq << current.comPos(0) + current.comVel(0)/omega - current.zmpPos(0) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(0) ,
+    //        current.comPos(1) + current.comVel(1)/omega - current.zmpPos(1) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(1) ;
+// /**/
     //CAM
-    if(VIP)
-    {
-    // anticipativeTail = Eigen::Vector3d::Zero();
+//     if(VIP)
+//     {
+//     // anticipativeTail = Eigen::Vector3d::Zero();
     
-    for(int i = 0; i < N; ++i) {
-        Aeq_cam(0,i)     = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
-        Aeq_cam(1,N+i) = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
-    }
+//     for(int i = 0; i < N; ++i) {
+//         Aeq_cam(0,i)     = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
+//         Aeq_cam(1,N+i) = stabConstrMultiplier * exp(-omega*mpcTimeStep*i) - mpcTimeStep * exp(-omega*mpcTimeStep*N);
+//     }
 
-    beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(0),
-           current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(1);
+//     beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(0),
+//            current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1) * (1.0 - exp(-omega*mpcTimeStep*N)) - anticipativeTail(1);
 
-}
+// }
      // Construct the ZMP constraint
     // ****************************
 
@@ -351,13 +343,26 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
                  -rSinZmp,rCosZmp;
 
 
-    // Construct the A matrix of the ZMP constraint, by diagonalizing two of the same, then rotating
-    Eigen::MatrixXd halfAZmp(N,N+M);
-    halfAZmp << Ic*P, -Ic*Cc;
-    AZmp.block(0,0,N,N+M) = halfAZmp;
-    AZmp.block(N,N+M,N,N+M) = halfAZmp;
+Eigen::VectorXd footx = Eigen::VectorXd::Zero(N);
+Eigen::VectorXd footy = Eigen::VectorXd::Zero(N);
 
-    AZmp = zmpRotationMatrix * AZmp;
+// std::cout <<  (CcFull.col(2)*fp.at(walkState.footstepCounter - 1 + 2)(0)).rows() << std::endl;
+
+for(int i=0; i<CcFull.cols(); ++i){
+    // std::cout << i << std::endl;f
+    // std::cout << footx.cols() << ", " << CcFull.col(i)*(fp.at(walkState.footstepCounter - 1 + i)(0)) << std::endl;
+    footx = footx + CcFull.col(i)*fp.at(walkState.footstepCounter + i)(0);
+    footy = footy + CcFull.col(i)*fp.at(walkState.footstepCounter + i)(1);
+}
+
+    // Construct the A matrix of the ZMP constraint, by diagonalizing two of the same, then rotating
+    // std::cout << "Ic = " << Ic << std::endl;
+    Eigen::MatrixXd halfAZmp(N,N);
+    halfAZmp << Ic*P;
+    AZmp.block(0,0,N,N) = halfAZmp;
+    AZmp.block(N,N,N,N) = halfAZmp;
+
+    // AZmp = zmpRotationMatrix * AZmp;
 
     // Construct the b vector of the ZMP constraint
     Eigen::VectorXd bZmpSizeTerm = Eigen::VectorXd::Zero(2*N);
@@ -365,25 +370,36 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     Eigen::VectorXd restriction = Eigen::VectorXd::Zero(2*N);
     Eigen::VectorXd res = Eigen::VectorXd::Zero(N);
 
-    bZmpSizeTerm << Ic*p*footConstraintSquareWidth/2, Ic*p*footConstraintSquareWidth/2;
+    bZmpSizeTerm << Ic*p*footConstraintSquareWidth/2, Ic*p*footConstraintSquareWidth/2 ;
     for (int j = 0; j<N; j++) res(j) = j;
     restriction << Ic*res*controlTimeStep*footConstraintSquareWidth/2, Ic*res*controlTimeStep*footConstraintSquareWidth/2;
 
-    bZmpStateTerm << Ic*(-p*current.zmpPos(0)+currentFootstepZmp*supportFootPose(3)), Ic*(-p*current.zmpPos(1)+currentFootstepZmp*supportFootPose(4));
-    bZmpStateTerm = zmpRotationMatrix * bZmpStateTerm;
+    bZmpStateTerm << Ic*(-p*current.zmpPos(0)) + Ic*footx, Ic*(-p*current.zmpPos(1))+ Ic*footy;
+    // bZmpStateTerm = zmpRotationMatrix * bZmpStateTerm;
 
     bZmpMin = - bZmpSizeTerm + bZmpStateTerm;
     bZmpMax =   bZmpSizeTerm + bZmpStateTerm;
-    // Construct the A matrix of the ZMP constraint, by diagonalizing two of the same, then rotating
-    if(VIP){
-    AZmp_cam.block(0,0,N,N) = P;
-    AZmp_cam.block(N,N,N,N) = P;
-    double xzcam_max = forceLimit/(mass*9.81);
-    double yzcam_max = forceLimit/(mass*9.81);
 
-        bZmpMin_cam << p*(xzcam_max-current.zmpPos(0)),p*(yzcam_max-current.zmpPos(1));
-        bZmpMax_cam << -bZmpMin_cam;
+if(walkState.footstepCounter == 0){
+
+    bZmpMax.block(0,0,N,1) += CcFull.col(0)*(-footConstraintSquareWidth/2 + initalfootConstrainSquarewidthx/2);
+    bZmpMax.block(N,0,N,1) += CcFull.col(0)*(-footConstraintSquareWidth/2 + initalfootConstrainSquarewidthy/2);
+
+    bZmpMin.block(0,0,N,1) -= CcFull.col(0)*(-footConstraintSquareWidth/2 + initalfootConstrainSquarewidthx/2);
+    bZmpMin.block(N,0,N,1) -= CcFull.col(0)*(-footConstraintSquareWidth/2 + initalfootConstrainSquarewidthy/2);
 }
+
+
+    // Construct the A matrix of the ZMP constraint, by diagonalizing two of the same, then rotating
+//     if(VIP){
+//     AZmp_cam.block(0,0,N,N) = P;
+//     AZmp_cam.block(N,N,N,N) = P;
+//     double xzcam_max = forceLimit/(mass*9.81);
+//     double yzcam_max = forceLimit/(mass*9.81);
+
+//         bZmpMin_cam << p*(xzcam_max-current.zmpPos(0)),p*(yzcam_max-current.zmpPos(1));
+//         bZmpMax_cam << -bZmpMin_cam;
+// }
     // Construct the kinematic constraint
     // **********************************
 
@@ -414,56 +430,58 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     // Assemble the A matrix for the kinematic constraint, and rotate
     AFootsteps.block(0,N,M,M) = differenceMatrix;
     AFootsteps.block(M,2*N+M,M,M) = differenceMatrix;
-    AFootsteps = footstepsRotationMatrix * AFootsteps;
+    // AFootsteps = footstepsRotationMatrix * AFootsteps;
+
+    // std::cout << "footstepsRotationMatrix = " << footstepsRotationMatrix << std::endl;
 
     // Assemble the b vector for the kinematic constraint
     bFootstepsMin << -pF*deltaXMax + supportFootPose(3)*currentFootstepKinematic, -pFl*deltaYOut + pFr*deltaYIn  + supportFootPose(4)*currentFootstepKinematic;
     bFootstepsMax <<  pF*deltaXMax + supportFootPose(3)*currentFootstepKinematic, -pFl*deltaYIn  + pFr*deltaYOut + supportFootPose(4)*currentFootstepKinematic;
-
+    
     // Construct the cost function
     // ***************************
 
     // Construct the H matrix, which is made of two of the same halfH block
-    Eigen::MatrixXd halfH = Eigen::MatrixXd::Zero(N+M, N+M);
-    halfH << qZd*Eigen::MatrixXd::Identity(N,N) + qZ*P.transpose()*P,
-             -qZ*P.transpose()*Cc, -qZ*Cc.transpose()*P, qZ*Cc.transpose()*Cc + qF*Eigen::MatrixXd::Identity(M,M);
-    costFunctionH.block(0,0,N+M,N+M) = halfH;
-    costFunctionH.block(N+M,N+M,N+M,N+M) = halfH;
+    Eigen::MatrixXd halfH = Eigen::MatrixXd::Zero(N, N);
+    halfH << qZd*Eigen::MatrixXd::Identity(N,N);
+
+    costFunctionH.block(0,0,N,N) = halfH;
+    costFunctionH.block(N,N,N,N) = halfH;
 
     if(VIP){
         costFunctionHcam.block(0,0,N,N) = qZd_cam*Eigen::MatrixXd::Identity(N,N);
         costFunctionH.block(N,N,N,N) = qZd_cam*Eigen::MatrixXd::Identity(N,N);
     }
 
-    // Contruct candidate footstep vectors
-    Eigen::VectorXd xCandidateFootsteps(M), yCandidateFootsteps(M);
-    for (int i = 0; i < M; i++) {
+//     // Contruct candidate footstep vectors
+//     Eigen::VectorXd xCandidateFootsteps(M), yCandidateFootsteps(M);
+//     for (int i = 0; i < M; i++) {
 
-        if (walkState.footstepCounter - 1 + i >= 0) {
+//         if (walkState.footstepCounter - 1 + i >= 0) {
 
-         yCandidateFootsteps(i) = fp.at(walkState.footstepCounter - 1 + i)(1);
-         xCandidateFootsteps(i) = fp.at(walkState.footstepCounter - 1 + i)(0);
+//          yCandidateFootsteps(i) = fp.at(walkState.footstepCounter - 1 + i)(1);
+//          xCandidateFootsteps(i) = fp.at(walkState.footstepCounter - 1 + i)(0);
 
-        }
-    }
- if (walkState.footstepCounter > 2){
-         yCandidateFootsteps(0) = supportFootPose(4);
-         //xCandidateFootsteps(0) = supportFootPose(3) + 0.21;
-}
+//         }
+//     }
+// //  if (walkState.footstepCounter > 2){
+// //          yCandidateFootsteps(0) = supportFootPose(4);
+// //          //xCandidateFootsteps(0) = supportFootPose(3) + 0.21;
+// // }
 
-    if (walkState.footstepCounter == 0) { // FIXME this is ugly but it is necessary to add the fake initial step
-        xCandidateFootsteps(0) = 0.0;
-        yCandidateFootsteps(0) = -0.08;
-    }
+//     if (walkState.footstepCounter == 0) { // FIXME this is ugly but it is necessary to add the fake initial step
+//         xCandidateFootsteps(0) = 0.0;
+//         yCandidateFootsteps(0) = -0.08;
+//     }
 
     // Construct the F vector
         Eigen::Vector3d stateX = Eigen::Vector3d(current.comPos(0), current.comVel(0), current.zmpPos(0));
         Eigen::Vector3d stateY = Eigen::Vector3d(current.comPos(1), current.comVel(1), current.zmpPos(1));
 
-    costFunctionF << qZ*P.transpose()*(p*current.zmpPos(0) - currentFootstepZmp*supportFootPose(3)),
-             -qZ*Cc.transpose()*(p*current.zmpPos(0) - currentFootstepZmp*supportFootPose(3)) - qF*xCandidateFootsteps,
-             qZ*P.transpose()*(p*current.zmpPos(1) - currentFootstepZmp*supportFootPose(4)),
-             -qZ*Cc.transpose()*(p*current.zmpPos(1) - currentFootstepZmp*supportFootPose(4)) - qF*yCandidateFootsteps;
+    // costFunctionF << qZ*P.transpose(),-qF*xCandidateFootsteps,
+    //          qZ*P.transpose(),- qF*yCandidateFootsteps;
+
+             costFunctionF << Eigen::VectorXd::Zero(N+N);
 
              if(VIP){
                 Eigen::VectorXd Nzeros = Eigen::VectorXd::Zero(N);
@@ -472,27 +490,27 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
 
     // Stack the constraint matrices
     // *****************************
-    int nConstraints = Aeq.rows() + AFootsteps.rows() + AZmp.rows();
-    AConstraint.resize(nConstraints, 2*(N+M));
+    int nConstraints = Aeq.rows() + AZmp.rows();
+    AConstraint.resize(nConstraints, 2*(N));
     bConstraintMin.resize(nConstraints);
     bConstraintMax.resize(nConstraints);
 
-    AConstraint    << Aeq, AFootsteps, AZmp;
-    bConstraintMin << beq, bFootstepsMin, bZmpMin;
-    bConstraintMax << beq, bFootstepsMax, bZmpMax;
-    if(VIP){
-        int nConstraintscam = Aeq_cam.rows() + AZmp_cam.rows();
-        AConstraintcam.resize(nConstraintscam, 2*N);
-        bConstraintMincam.resize(nConstraintscam);
-        bConstraintMaxcam.resize(nConstraintscam);
-        bConstraintMincam << beq_cam, bZmpMin_cam;
-        bConstraintMaxcam << beq_cam, bZmpMax_cam;
+    AConstraint    << Aeq, AZmp;
+    bConstraintMin << beq, bZmpMin;
+    bConstraintMax << beq, bZmpMax;
+    // if(VIP){
+    //     int nConstraintscam = Aeq_cam.rows() + AZmp_cam.rows();
+    //     AConstraintcam.resize(nConstraintscam, 2*N);
+    //     bConstraintMincam.resize(nConstraintscam);
+    //     bConstraintMaxcam.resize(nConstraintscam);
+    //     bConstraintMincam << beq_cam, bZmpMin_cam;
+    //     bConstraintMaxcam << beq_cam, bZmpMax_cam;
 
-    AConstraintcam    << Aeq_cam, AZmp_cam;
-    bConstraintMincam << beq_cam, bZmpMin_cam;
-    bConstraintMaxcam << beq_cam, bZmpMax_cam;
+    // AConstraintcam    << Aeq_cam, AZmp_cam;
+    // bConstraintMincam << beq_cam, bZmpMin_cam;
+    // bConstraintMaxcam << beq_cam, bZmpMax_cam;
 
-    }
+    // }
 
     // Solve QP and update state
     // *************************
@@ -521,13 +539,13 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     // Split the QP solution in ZMP dot and footsteps
     Eigen::VectorXd zDotOptimalX(N);
     Eigen::VectorXd zDotOptimalY(N);
-    Eigen::VectorXd footstepsOptimalX(M);
-    Eigen::VectorXd footstepsOptimalY(M);
+    // Eigen::VectorXd footstepsOptimalX(M);
+    // Eigen::VectorXd footstepsOptimalY(M);
 
     zDotOptimalX = (decisionVariables.head(N));
-    zDotOptimalY = (decisionVariables.segment(N+M,N));
-    footstepsOptimalX = decisionVariables.segment(N,M);
-    footstepsOptimalY = decisionVariables.segment(2*N+M,M);
+    zDotOptimalY = (decisionVariables.segment(N,N));
+    // footstepsOptimalX = decisionVariables.segment(N,M);
+    // footstepsOptimalY = decisionVariables.segment(2*N+M,M);
 
     // Update the com-torso state based on the result of the QP
     double ch = cosh(omega*controlTimeStep);
@@ -537,9 +555,19 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     Eigen::Vector3d B_upd = Eigen::VectorXd::Zero(3);
     A_upd<<ch,sh/omega,1-ch,omega*sh,ch,-omega*sh,0,0,1;
     B_upd<<controlTimeStep-sh/omega,1-ch,controlTimeStep;
+    //     if(Virt_noise)
+    //     predstate_x = predstate_x + [0; 0; virt_torq(1,j)];
+    //     predstate_y = predstate_y + [0; 0; virt_torq(2,j)];
+    // end
+    Eigen::Vector3d currentStateX;
+    Eigen::Vector3d currentStateY;
 
-    Eigen::Vector3d currentStateX = Eigen::Vector3d(current.comPos(0), current.comVel(0), current.zmpPos(0));
-    Eigen::Vector3d currentStateY = Eigen::Vector3d(current.comPos(1), current.comVel(1), current.zmpPos(1));
+    // std::cout<< "virtualNoise = " << virtualNoise << std::endl;
+    currentStateX = Eigen::Vector3d(current.comPos(0), current.comVel(0), current.zmpPos(0)+virtualNoise(0));
+    currentStateY = Eigen::Vector3d(current.comPos(1), current.comVel(1), current.zmpPos(1)+virtualNoise(1));
+        // std::cout<< " not ZERO" << std::endl;   
+// std::cout << "FI AYYY " << std::endl;
+
     Eigen::Vector3d nextStateX = A_upd*currentStateX + B_upd*zDotOptimalX(0);
     Eigen::Vector3d nextStateY = A_upd*currentStateY + B_upd*zDotOptimalY(0);
 
@@ -549,16 +577,25 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     next.zmpPos = Eigen::Vector3d(nextStateX(2), nextStateY(2), 0.0);
     next.comAcc = omega*omega * (next.comPos - next.zmpPos);
 
-    if(!VIP_global)next.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
+    if(!VIP_global) next.torsoOrient = Eigen::Vector3d(0.0, 0.0, 0.0);
 
     xz_dot = zDotOptimalX(0);
     yz_dot = zDotOptimalY(0);
 
     Eigen::Vector4d footstepPredicted;
-    footstepPredicted << footstepsOptimalX(0),footstepsOptimalY(0),0.0,predictedOrientations(1);
+    // footstepPredicted << footstepsOptimalX(0),footstepsOptimalY(0),0.0,predictedOrientations(1);
+
+
+    // std::cout << fp.at(walkState.footstepCounter)(1) << std::endl;
+
+    //     if (walkState.footstepCounter == 0) { // FIXME this is ugly but it is necessary to add the fake initial step
+    //     footstepPredicted << fp.at(walkState.footstepCounter)(0), fp.at(walkState.footstepCounter)(1)+0.075, 0.0, 0.0;
+    // }
+// else
+ footstepPredicted << fp.at(walkState.footstepCounter+1)(0), fp.at(walkState.footstepCounter+1)(1), 0.0, 0.0;
 
     //std::cout << "x "<< footstepsOptimalX(0) <<std::endl;
-    //std::cout << "y "<< footstepsOptimalX(1) <<std::endl;
+    //std::cout << "y "<< footstepsOptimalY(0) <<std::endl;
 
     // Update swing foot position
 
@@ -568,10 +605,13 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
     double swingFootHeight = -(4*stepHeight/pow(singleSupportEnd,2)) * timeSinceFootstepStart * (timeSinceFootstepStart - singleSupportEnd);
     int samplesTillNextFootstep = (int)fp.at(walkState.footstepCounter + 1)(6) - ((int)fp.at(walkState.footstepCounter)(6) + walkState.mpcIter);
 
+// std::cout << "footstepCounter =  "<< walkState.footstepCounter << std::endl;
 
     if (walkState.footstepCounter == 0 || samplesTillNextFootstep <= ds_samples) swingFootHeight = 0.0;
-
+    // if(walkState.footstepCounter == 0) footstepPredicted+0.075;
+std::cout << "walkState.supportFoot=" << walkState.supportFoot << std::endl;
     // If support foot is left, move right foot
+    // if(walkState.footstepCounter > 0){
     if (walkState.supportFoot == 0) {
 
         if (samplesTillNextFootstep <= ds_samples ){
@@ -602,7 +642,7 @@ State MPCSolver::solve(State current, State current_cam, WalkState walkState, do
 
     }
 
-
+// }
 
     //std::cout << "footstepPredicted.head(3)" <<std::endl;
     //std::cout << footstepPredicted.head(3) - current.rightFootPos <<std::endl;

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <fstream>
 #include <eigen3/Eigen/Core>
+#include "../plotty/include/plotty/matplotlibcpp.hpp"
 
 using namespace std;
 

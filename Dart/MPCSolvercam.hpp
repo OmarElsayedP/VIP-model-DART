@@ -10,20 +10,22 @@
 #include <fstream>
 #include "FootstepPlan.hpp"
 #include <chrono>
+#include "dart/dart.hpp"
 
 class MPCSolvercam{
     public:
-    MPCSolvercam(FootstepPlan* _footstepPlann, int sim, bool angleConstraint, double torsomass, Eigen::Matrix3d MOI, Eigen::Vector3d theta_max);
+    MPCSolvercam(FootstepPlan* _footstepPlann, int sim, bool CAM, double torsomass, Eigen::Matrix3d MOI, Eigen::Vector3d theta_max);
     ~MPCSolvercam();
 
     // Compute the next desired state starting from the current state
-    State solve(State current, State current_cam, WalkState walkState, double mass);
+    State solve(State current, State current_cam, WalkState walkState, double mass, const dart::dynamics::SkeletonPtr& mRobot, double x_tot, double y_tot, 
+        Eigen::Vector3d AngularPosition, Eigen::Vector3d AngularVelocity);
 
     // some stuff
     int itr;
     int fsCount, old_fsCount, adaptation_memo, ds_samples, ct;
     int sim;
-    bool angleConstraint;
+    bool CAM;
 
     double xz_dot, yz_dot, xz_dot_cam, yz_dot_cam;
 
@@ -56,6 +58,10 @@ class MPCSolvercam{
     Eigen::VectorXd bAngleConstrMin;
     Eigen::VectorXd bAngleConstrMax;
 
+    //Matricies for terminal constraint
+    Eigen::MatrixXd Atermconstr;
+    Eigen::VectorXd btermconstr;
+
     // Matrices for the stacked constraints
     Eigen::MatrixXd AConstraintcam;
     Eigen::VectorXd bConstraintMaxcam;
@@ -73,5 +79,5 @@ class MPCSolvercam{
     Eigen::Vector3d currentThetaDD;
 
     Eigen::Matrix3d MOI;
-    Eigen::Vector3d desiredTorque;
+    Eigen::MatrixXd desiredTorque;
 };
