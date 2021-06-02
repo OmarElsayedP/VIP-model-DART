@@ -26,7 +26,6 @@ public:
 
   void update();
 
-  // Eigen::Vector3d ComputeAngularMomentum();
   Eigen::MatrixXd getTorsocamJacobian();
   Eigen::MatrixXd getTorsoAndSwfJacobian();
   Eigen::MatrixXd getTorsoAndSwfJacobianDeriv();
@@ -89,6 +88,7 @@ private:
   dart::dynamics::BodyNode* mBase;
 
   State desired;
+  State previous_desired;
   State current;
   State desiredWithNoise;
   State desired_cam;
@@ -113,14 +113,27 @@ private:
   double xzcom_tot;
   double yzcom_tot;
 
+  double xzd;
+  double yzd;
+
 Eigen::Vector2d virt_torq_zeros_allthetime;
 Eigen::Vector2d virt_torq;
   
-  StateFiltering* Filter;
-  
-  /*
-  std::random_device rd{};
-  std::mt19937 gen{rd()};
-  std::normal_distribution<> noise{0,10};  /**/
+StateFiltering* Filter;
+
+double errorfoot_x;
+double errorfoot_y;
+double error_x;
+double error_y;
+
+double error_xd;
+double error_yd;
+double error_xa;
+double error_ya;
+
+//   /*
+  // std::random_device rd{};
+  // std::mt19937 gen{rd()};
+  // std::normal_distribution<> noise{0,10};  /**/
 
 };

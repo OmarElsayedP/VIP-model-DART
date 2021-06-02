@@ -11,6 +11,7 @@ int main(int argc, char* argv[])
   // Create a world
   dart::simulation::WorldPtr world(new dart::simulation::World);
 
+
   // Load ground and HRP4 robot and add them to the world
   dart::utils::DartLoader urdfLoader;
   auto ground = urdfLoader.parseSkeleton(realpath("../ground.urdf", NULL));
@@ -56,7 +57,7 @@ int main(int argc, char* argv[])
   viewer.addWorldNode(node);
 
   // Set recording
-  // viewer.record("../data","frame");
+  viewer.record("../data","frame");
 
   // Pass in the custom event handler
   viewer.addEventHandler(new HRP4EventHandler(node));

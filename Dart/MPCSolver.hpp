@@ -29,6 +29,7 @@ class MPCSolver{
     // hpipm timing adaptation QP
     int timingQP(State current_s, WalkState walkState_s, double anticipativeTail_x, double anticipativeTail_y);
     double xz_dot, yz_dot, xz_dot_cam, yz_dot_cam;
+    State nextwithdisturbance;
 
     private:
     // Matrices for prediction
@@ -65,12 +66,6 @@ class MPCSolver{
     Eigen::MatrixXd AFootsteps;
     Eigen::VectorXd bFootstepsMax;
     Eigen::VectorXd bFootstepsMin;
-
-    //Matricies for angle constraint
-    Eigen::MatrixXd Aang;
-    Eigen::VectorXd bangMax;
-    Eigen::VectorXd BangMin;
-
 
     // Matrices for swing foot constraints
     Eigen::MatrixXd ASwingFoot;

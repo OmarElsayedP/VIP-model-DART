@@ -36,6 +36,7 @@ class MPCSolvercam{
     Eigen::VectorXd pmg;
     Eigen::MatrixXd Pmg;
     Eigen::MatrixXd Pthdd;
+    Eigen::MatrixXd Pthddnew;
 
     Eigen::MatrixXd Vu;
     Eigen::MatrixXd Vs;

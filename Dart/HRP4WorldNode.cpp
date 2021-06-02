@@ -8,6 +8,9 @@ HRP4WorldNode::HRP4WorldNode(
     mExternalForce(Eigen::Vector3d::Zero()),
     mForceDuration(0.0)
 {
+  
+    // std::cout<< "in void HRP4WorldNode::reset()" << '\n';
+
   assert(world);
   assert(hrp4);
 
