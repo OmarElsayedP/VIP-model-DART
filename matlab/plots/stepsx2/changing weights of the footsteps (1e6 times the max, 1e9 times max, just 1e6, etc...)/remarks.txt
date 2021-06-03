@@ -1,0 +1,13 @@
+-when this was too low wrt others the robot didnt
+move.
+
+-when 1e9 x max and 10 xz it goes crazy
+
+-when 1e8 x max and 10 xz it is very good
+
+-when 1e9 x max and 0.1 xz it is good but
+worse than 1e8 x max and 10 xz
+
+-when 1e8 xmax and 1 xz it is good
+
+-when 1e7 xmax and 10 xz it is normal

@@ -1,0 +1,18 @@
+- There is a difference between footstep plots when
+Qzdot = 0.1 and Qzdot = 1000 even though the
+footstep plans = max(Qzdot,Qzdot_cam)*1e9.
+
+- THe footstep location when Qzdot = 0.1 where
+in y
+  0   -0.1300    0.1100   -0.1300    0.1100   -0.1300    0.1100   -0.1300
+
+- THe footstep location when Qzdot = 1000 where
+in y
+0   -0.1496    0.0904   -0.1492    0.0908   -0.1489    0.0911   -0.1489
+
+- THe footstep location when Qzdot = 0.001 where
+in y
+  0   -0.1300    0.1100   -0.1300    0.1100   -0.1300    0.1100   -0.1300
+
+-The real y is
+0 -0.15 0.15 -0.15 0.15 ...
