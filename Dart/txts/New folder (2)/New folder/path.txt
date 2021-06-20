@@ -1,0 +1,1 @@
+cd Desktop/masters/thesis/CODE/Dart/txts

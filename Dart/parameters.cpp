@@ -18,7 +18,7 @@ const double stepHeight = 0.025;
 const double comTargetHeight = 0.71; //0.72
 // const double comTargetHeight = 0.75;
 // const double kSwingFoot = 0.05; //0.05;
-const double kSwingFoot = 0.07; //0.05;
+const double kSwingFoot = 0.08; //0.05;
 // const int nFootsteps = 20;/
 const int nFootsteps = 30;
 // const int nFootsteps = 40;
@@ -27,6 +27,7 @@ const int nFootsteps = 30;
 // Fixed step parameters
 const double stepx = 0.06;//0.0;//
 const double stepy = 0.1;
+const double FootStepY = 0.075;
 
 // Constraints
 const double thetaMax = 0.30;
@@ -39,14 +40,16 @@ const double deltaYOut = 0.28;
 
 // Cost function weights
 const double qZd = 1;
+const double qZd_cam = 1;
+
 const double qVx = 0;//100;
 const double qVy = 0;//100;
 const double qZ = 0; ////0;//1;
 const double qF = 10000000;//100;
-const double qThx = 60;
-const double qThy = 60;
 
-const double qZd_cam = 1;
+const double qThx = 100; //100  //10 with disturbance
+const double qThy = 100; //100  //10 with disturbance
+
 
 // Kinematic control
 const double IKerrorGain = 1.0; //0.99;  1.0

@@ -41,7 +41,7 @@ public:
       Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
 
   Eigen::VectorXd getJointVelocitiesDoublePendulum(Eigen::VectorXd, Eigen::VectorXd,
-      Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
+      Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
   
     Eigen::VectorXd getJointVelocitiesStacked_worldframe(Eigen::VectorXd, Eigen::VectorXd,
       Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd);
@@ -74,6 +74,7 @@ private:
   bool isDoublePendulum = false;
   bool VIPsturn = false;
   double mRobotMass;
+  double mTorsoMass;
   Eigen::VectorXd prevQdot;
   Eigen::Vector3d mAngularVelocity;
   Eigen::Vector3d mAngularPosition;
@@ -118,6 +119,8 @@ private:
 
 Eigen::Vector2d virt_torq_zeros_allthetime;
 Eigen::Vector2d virt_torq;
+
+Eigen::VectorXd TorquesDesired = Eigen::VectorXd::Zero(3);
   
 StateFiltering* Filter;
 
@@ -130,6 +133,11 @@ double error_xd;
 double error_yd;
 double error_xa;
 double error_ya;
+
+Eigen::Vector3d error_torsoAngle_foot;
+Eigen::Vector3d error_torsoPos_foot;
+Eigen::Vector3d error_footAngle_foot;
+Eigen::Vector3d error_footPos_foot;
 
 //   /*
   // std::random_device rd{};

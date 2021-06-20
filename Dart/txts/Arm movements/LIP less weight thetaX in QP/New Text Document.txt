@@ -1,0 +1,36 @@
+ffmpeg \
+  -i LIPs.mp4 \
+  -i VIPs.mp4 \
+  -filter_complex '[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]' \
+  -map '[vid]' \
+  -c:v libx264 \
+  -crf 23 \
+  -preset veryfast \
+  Nominal.mp4
+
+
+ffmpeg -i LIP.mp4 -vf drawtext="fontfile=/path/to/font.ttf: \
+text='LIP': fontcolor=white: fontsize=30: box=1: boxcolor=black@0.5: \
+boxborderw=5: x=(w-text_w)/2: y= 800" -codec:a copy LIPs.mp4
+
+ffmpeg -i LIP+arm.mp4 -vf drawtext="fontfile=/path/to/font.ttf: \
+text='LIP with arm movement': fontcolor=white: fontsize=30: box=1: boxcolor=black@0.5: \
+boxborderw=5: x=(w-text_w)/2: y= 800" -codec:a copy LIP+arms.mp4
+
+ffmpeg -i VIP.mp4 -vf drawtext="fontfile=/path/to/font.ttf: \
+text='VIP': fontcolor=white: fontsize=30: box=1: boxcolor=black@0.5: \
+boxborderw=5: x=(w-text_w)/2: y= 800" -codec:a copy VIPs.mp4
+
+ffmpeg -i VIP+arm.mp4 -vf drawtext="fontfile=/path/to/font.ttf: \
+text='VIP with arm movement': fontcolor=white: fontsize=30: box=1: boxcolor=black@0.5: \
+boxborderw=5: x=(w-text_w)/2: y= 800" -codec:a copy VIP+arms.mp4
+
+ffmpeg \
+  -i LIP+arms.mp4 \
+  -i VIP+arms.mp4 \
+  -filter_complex '[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]' \
+  -map '[vid]' \
+  -c:v libx264 \
+  -crf 23 \
+  -preset veryfast \
+  ArmMovement.mp4

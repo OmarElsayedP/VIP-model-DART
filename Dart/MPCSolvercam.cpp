@@ -228,6 +228,7 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
     beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
            current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
 
+
 // //Truncated tail
     // double lambda_tail = exp(-omega*mpcTimeStep);
     // for(int i = 0; i < N; ++i) {
@@ -393,7 +394,6 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
 
         // std::cout << "after terminal const" << std::endl;
 
-
         int nConstraintscam = Aeq_cam.rows() + AZmp_cam.rows() + AAngleconstr.rows();
         // std::cout << "nConstraintscam = " << nConstraintscam << std::endl;
         AConstraintcam.resize(nConstraintscam, 2*N);
@@ -442,8 +442,35 @@ else{
 
 Eigen::MatrixXd Ixx;
 Eigen::MatrixXd Iyy;
-Ixx = (1.0/MOI(0,0))*Eigen::MatrixXd::Identity(N,N);
-Iyy = (1.0/MOI(1,1))*Eigen::MatrixXd::Identity(N,N);
+Eigen::MatrixXd Ixy;
+Eigen::MatrixXd Iyx;
+
+Ixx = MOI.inverse()(0,0)*Eigen::MatrixXd::Identity(N,N);
+Iyy = MOI.inverse()(1,1)*Eigen::MatrixXd::Identity(N,N);
+
+Ixy = MOI.inverse()(0,1)*Eigen::MatrixXd::Identity(N,N);
+Iyx = MOI.inverse()(1,0)*Eigen::MatrixXd::Identity(N,N);
+
+Eigen::MatrixXd Qthx;
+Eigen::MatrixXd Qthy;
+
+Qthx = qThx*Eigen::MatrixXd::Identity(N,N);
+Qthy = qThy*Eigen::MatrixXd::Identity(N,N);
+
+// Ixy = 0.0*Eigen::MatrixXd::Identity(N,N);
+// Iyx = 0.0*Eigen::MatrixXd::Identity(N,N);
+
+// std::cout << "Ixx = " << MOI.inverse()(0,0)  << std::endl;
+// std::cout << "Ixy = " << MOI.inverse()(0,1)  << std::endl;
+// std::cout << "Ixz = " << MOI.inverse()(0,2)  << std::endl;
+// std::cout << "Iyx = " << MOI.inverse()(1,0)   << std::endl;
+// std::cout << "Iyy = " << MOI.inverse()(1,1)   << std::endl;
+// std::cout << "Iyz = " << MOI.inverse()(1,2)  << std::endl;
+// std::cout << "Izx = " << MOI.inverse()(2,0)   << std::endl;
+// std::cout << "Izy = " << MOI.inverse()(2,1)   << std::endl;
+// std::cout << "Izz = " << MOI.inverse()(2,2)  << std::endl;
+// Ixx = (1.0/MOI(0,0))*Eigen::MatrixXd::Identity(N,N);
+// Iyy = (1.0/MOI(1,1))*Eigen::MatrixXd::Identity(N,N);
 
 Eigen::MatrixXd Pthddnew1mg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*mass*9.81;
 
@@ -459,29 +486,118 @@ Eigen::MatrixXd Pthddnew1mg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*mass*9.81;
 
 
 
+
+
+        Eigen::MatrixXd A_ = Eigen::MatrixXd::Zero(3,3);
+        Eigen::MatrixXd B_ = Eigen::MatrixXd::Zero(3,1);
+        Eigen::MatrixXd C_ = Eigen::MatrixXd::Zero(1,3);
+        A_ << 1, mpcTimeStep, pow(mpcTimeStep,2)/2, 0, 1, mpcTimeStep, 0, 0, 1;
+        B_ << pow(mpcTimeStep,2)/6, pow(mpcTimeStep,2)/2, mpcTimeStep;
+        C_ << 1, 0, 0;
+        Eigen::MatrixXd State_trans = Eigen::MatrixXd::Zero(3*N,N);
+        Eigen::MatrixXd State_trans_th = Eigen::MatrixXd::Zero(N,N);
+        Eigen::MatrixXd Init_state_mat = Eigen::MatrixXd::Zero(3*N,3);
+        Eigen::MatrixXd Init_state_mat_th = Eigen::MatrixXd::Zero(N,3);
+        for(int i = 0; i < 3*N; i=i+3){
+            for(int j = N-1; j >= 0; j--){
+                if(i == j*3)
+                    State_trans.block(i,j,3,1) = B_;
+                if(i > j*3)
+                    State_trans.block(i,j,3,1) = A_*State_trans.block(i,j+1,3,1);
+            }
+            if(i == 0)
+                Init_state_mat.block(0,0,3,3) = A_;
+            else
+                Init_state_mat.block(i,0,3,3) = A_*Init_state_mat.block(i-3,0,3,3);
+                        // std::cout << "i = " << i << std::endl;
+        }
+        int iter = 0;
+        for(int i = 0; i < 3*N; i=i+3){
+            for(int j = N-1; j >= 0; j--){
+                    State_trans_th.block<1,1>(iter,j) = C_*State_trans.block<3, 1>(i,j);
+            }
+                Init_state_mat_th.block(iter,0,1,3) = C_*Init_state_mat.block(i,0,3,3);
+                iter += 1;
+            }
+
+        Eigen::Vector3d Initial_state = Eigen::Vector3d::Zero(3);
+        Initial_state << currentTheta(0), currentThetaD(0), currentThetaDD(0);
+        Eigen::Vector3d Initial_state_y = Eigen::Vector3d::Zero(3);
+        Initial_state_y << currentTheta(1), currentThetaD(1), currentThetaDD(1);
+
+        costFunctionHcam.block(0,0,N,N) += 0.5*((State_trans_th*Ixy*Pthddnew1mg).transpose())*Qthx*(State_trans_th*Ixy*Pthddnew1mg);
+        costFunctionHcam.block(0,N,N,N) += 0.5*((State_trans_th*Ixy*Pthddnew1mg).transpose())*Qthx*(-State_trans_th*Ixx*Pthddnew1mg);
+        
+        costFunctionHcam.block(N,0,N,N) += 0.5*((-State_trans_th*Ixx*Pthddnew1mg).transpose())*Qthx*(State_trans_th*Ixy*Pthddnew1mg);
+        costFunctionHcam.block(N,N,N,N) += 0.5*((-State_trans_th*Ixx*Pthddnew1mg).transpose())*Qthx*(-State_trans_th*Ixx*Pthddnew1mg);
+
+
+        costFunctionHcam.block(0,0,N,N) += 0.5*((State_trans_th*Iyy*Pthddnew1mg).transpose())*Qthy*(State_trans_th*Iyy*Pthddnew1mg);
+        costFunctionHcam.block(0,N,N,N) += 0.5*((State_trans_th*Iyy*Pthddnew1mg).transpose())*Qthy*(-State_trans_th*Iyx*Pthddnew1mg);
+        
+        costFunctionHcam.block(N,0,N,N) += 0.5*((-State_trans_th*Iyx*Pthddnew1mg).transpose())*Qthy*(State_trans_th*Iyy*Pthddnew1mg);
+        costFunctionHcam.block(N,N,N,N) += 0.5*((-State_trans_th*Iyx*Pthddnew1mg).transpose())*Qthy*(-State_trans_th*Iyx*Pthddnew1mg);
+
+
+
+
     // Thetax squared and thetay squared H matrix
-        costFunctionHcam.block(N,N,N,N) += 0.5*qThx*((Pthddnew*Ixx*Pthddnew1mg).transpose())*(Pthddnew*Ixx*Pthddnew1mg);
-        costFunctionHcam.block(0,0,N,N) += 0.5*qThy*((Pthddnew*Iyy*Pthddnew1mg).transpose())*(Pthddnew*Iyy*Pthddnew1mg);
+        // costFunctionHcam.block(0,0,N,N) += 0.5*((Pthddnew*Ixy*Pthddnew1mg).transpose())*Qthx*(Pthddnew*Ixy*Pthddnew1mg);
+        // costFunctionHcam.block(0,N,N,N) += 0.5*((Pthddnew*Ixy*Pthddnew1mg).transpose())*Qthx*(-Pthddnew*Ixx*Pthddnew1mg);
+        
+        // costFunctionHcam.block(N,0,N,N) += 0.5*((-Pthddnew*Ixx*Pthddnew1mg).transpose())*Qthx*(Pthddnew*Ixy*Pthddnew1mg);
+        // costFunctionHcam.block(N,N,N,N) += 0.5*((-Pthddnew*Ixx*Pthddnew1mg).transpose())*Qthx*(-Pthddnew*Ixx*Pthddnew1mg);
+
+
+
+        // costFunctionHcam.block(0,0,N,N) += 0.5*((Pthddnew*Iyy*Pthddnew1mg).transpose())*Qthy*(Pthddnew*Iyy*Pthddnew1mg);
+        // costFunctionHcam.block(0,N,N,N) += 0.5*((Pthddnew*Iyy*Pthddnew1mg).transpose())*Qthy*(-Pthddnew*Iyx*Pthddnew1mg);
+        
+        // costFunctionHcam.block(N,0,N,N) += 0.5*((-Pthddnew*Iyx*Pthddnew1mg).transpose())*Qthy*(Pthddnew*Iyy*Pthddnew1mg);
+        // costFunctionHcam.block(N,N,N,N) += 0.5*((-Pthddnew*Iyx*Pthddnew1mg).transpose())*Qthy*(-Pthddnew*Iyx*Pthddnew1mg);
 
     // Construct the F vector
     Eigen::VectorXd Nzeros = Eigen::VectorXd::Zero(N);
     costFunctionFcam << Nzeros, Nzeros;
 
 
-        // std::cout << "before Fcam fcn" << std::endl;
+        costFunctionFcam.block(0,0,N,1) += 
+        ((Init_state_mat_th*Initial_state -State_trans_th*Ixx*pmg*current_cam.comPos(1) + State_trans_th*Ixy*pmg*current_cam.comPos(0)).transpose()*Qthx*(State_trans_th*Ixy*Pthddnew1mg)).transpose();
+
+    costFunctionFcam.block(N,0,N,1) += ((
+        Init_state_mat_th*Initial_state -State_trans_th*Ixx*pmg*current_cam.comPos(1) + State_trans_th*Ixy*pmg*current_cam.comPos(0)).transpose()*Qthx*(-State_trans_th*Ixx*Pthddnew1mg)).transpose();
+
+
+
+    costFunctionFcam.block(0,0,N,1) += ((
+        Init_state_mat_th*Initial_state_y + State_trans_th*Iyy*pmg*current_cam.comPos(0) - State_trans_th*Iyx*pmg*current_cam.comPos(1)).transpose()*Qthy*(State_trans_th*Iyy*Pthddnew1mg)).transpose();
+
+    
+    costFunctionFcam.block(N,0,N,1) += qThy*Eigen::MatrixXd::Identity(N,N)*((
+         Init_state_mat_th*Initial_state_y + State_trans_th*Iyy*pmg*current_cam.comPos(0) - State_trans_th*Iyx*pmg*current_cam.comPos(1)).transpose()*Qthy*(-State_trans_th*Iyx*Pthddnew1mg)).transpose();
+
 
     // Thetax squared and thetay squared F matrix
 
 // qThx-(p*AngularPosition(0) + P*p*AngularVelocity(0) - Pthddnew*Ixx*pmg*current_cam.comPos(1)).transpose()*Pthddnew*Ixx*pmg*Pthddnew1;
 // std::cout << "before fcam" << std::endl;
 
+    // costFunctionFcam.block(0,0,N,1) += ((
+    //     p*AngularPosition(0) + P*p*AngularVelocity(0) - Pthddnew*Ixx*pmg*current_cam.comPos(1) + Pthddnew*Ixy*pmg*current_cam.comPos(0)).transpose()*Qthx*(Pthddnew*Ixy*Pthddnew1mg)).transpose();
 
-
-    costFunctionFcam.block(N,0,N,1) += ((qThx*Eigen::MatrixXd::Identity(N,N)*
-        -p*AngularPosition(0) + P*p*AngularVelocity(0) - Pthddnew*Ixx*pmg*current_cam.comPos(1)).transpose()*Pthddnew*Ixx*Pthddnew1mg).transpose();
+    // costFunctionFcam.block(N,0,N,1) += ((
+    //     p*AngularPosition(0) + P*p*AngularVelocity(0) - Pthddnew*Ixx*pmg*current_cam.comPos(1) + Pthddnew*Ixy*pmg*current_cam.comPos(0)).transpose()*Qthx*(-Pthddnew*Ixx*Pthddnew1mg)).transpose();
     
-    costFunctionFcam.block(0,0,N,1) += ((qThy*Eigen::MatrixXd::Identity(N,N)*
-         p*AngularPosition(1) + P*p*AngularVelocity(1) + Pthddnew*Iyy*pmg*current_cam.comPos(0)).transpose()*Pthddnew*Iyy*Pthddnew1mg).transpose();
+
+ 
+
+
+    // costFunctionFcam.block(0,0,N,1) += ((
+    //      p*AngularPosition(1) + P*p*AngularVelocity(1) + Pthddnew*Iyy*pmg*current_cam.comPos(0) - Pthddnew*Iyx*pmg*current_cam.comPos(1)).transpose()*Qthy*(Pthddnew*Iyy*Pthddnew1mg)).transpose();
+
+    
+    // costFunctionFcam.block(N,0,N,1) += qThy*Eigen::MatrixXd::Identity(N,N)*((
+    //      p*AngularPosition(1) + P*p*AngularVelocity(1) + Pthddnew*Iyy*pmg*current_cam.comPos(0) - Pthddnew*Iyx*pmg*current_cam.comPos(1)).transpose()*Qthy*(-Pthddnew*Iyx*Pthddnew1mg)).transpose();
 
     // Solve QP and update state
     // *************************
@@ -545,6 +661,42 @@ Eigen::MatrixXd Pthddnew1mg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*mass*9.81;
 
     old_fsCount = fsCount;
     ct = ct + 1;
+
+// X-matrix way
+// // std::cout << "1" << std::endl;
+//         Eigen::MatrixXd A_ = Eigen::MatrixXd::Zero(3,3);
+//         Eigen::MatrixXd B_ = Eigen::MatrixXd::Zero(3,1);
+//         Eigen::MatrixXd C_ = Eigen::MatrixXd::Zero(1,3);
+//         A_ << 1, mpcTimeStep, pow(mpcTimeStep,2)/2, 0, 1, mpcTimeStep, 0, 0, 1;
+//         B_ << pow(mpcTimeStep,2)/6, pow(mpcTimeStep,2)/2, mpcTimeStep;
+//         C_ << 1, 0, 0;
+// // std::cout << "2" << std::endl;
+//         Eigen::MatrixXd State_trans = Eigen::MatrixXd::Zero(3*N,N);
+//         Eigen::MatrixXd Init_state_mat = Eigen::MatrixXd::Zero(3*N,3);
+//         Eigen::Vector3d Initial_state = Eigen::Vector3d::Zero(3);
+//         Initial_state << currentTheta(0), currentThetaD(0), currentThetaDD(0);
+// // std::cout << "3" << std::endl;
+//         for(int i = 0; i < 3*N; i=i+3){
+//             for(int j = N-1; j >= 0; j--){
+//                 if(i == j*3)
+//                     State_trans.block(i,j,3,1) = B_;
+//                 if(i > j*3)
+//                     State_trans.block(i,j,3,1) = A_*State_trans.block(i,j+1,3,1);
+//             }
+//             if(i == 0)
+//                 Init_state_mat.block(0,0,3,3) = A_;
+//             else
+//                 Init_state_mat.block(i,0,3,3) = A_*Init_state_mat.block(i-3,0,3,3);
+//                         // std::cout << "i = " << i << std::endl;
+//         }
+// // std::cout << "4" << std::endl;
+//         Eigen::VectorXd Next_state = Eigen::VectorXd::Zero(3*N);
+//         // -Ixx*pmg*current_cam.comPos(1)-Ixx*Pthddnew1mg*yz_dot_cam ;//Ixy*pmg*current_cam.comPos(0)+Ixy*Pthddnew1mg*yz_dot_cam;
+//    //     std::cout << "5" << std::endl;
+//         Next_state = Init_state_mat*Initial_state + State_trans*(-Ixx*pmg*current_cam.comPos(1)-Ixx*Pthddnew1mg*zDotOptimalY_cam +Ixy*pmg*current_cam.comPos(0)+Ixy*Pthddnew1mg*zDotOptimalX_cam);
+//         std::cout << "theta,thetad,thetadd = " << Next_state(0) << Next_state(1) << Next_state(2)<< std::endl;
+
+
 
 return next_cam;
 }

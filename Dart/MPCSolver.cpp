@@ -350,7 +350,7 @@ Eigen::VectorXd footy = Eigen::VectorXd::Zero(N);
 
 // std::cout <<  (CcFull.col(2)*fp.at(walkState.footstepCounter - 1 + 2)(0)).rows() << std::endl;
 
-for(int i=0; i<M; ++i){
+for(int i=0; i<M ; ++i){
     // std::cout << "CcFull.cols() = " << CcFull.cols()<< std::endl;
     // std::cout << footx.cols() << ", " << CcFull.col(i)*(fp.at(walkState.footstepCounter - 1 + i)(0)) << std::endl;
     footx = footx + CcFull.col(i)*fp.at(walkState.footstepCounter + i)(0);
@@ -619,7 +619,7 @@ if(walkState.footstepCounter == 0){
 
     //std::cout << "x "<< footstepsOptimalX(0) <<std::endl;
     //std::cout << "y "<< footstepsOptimalY(0) <<std::endl;
-
+ 
     // Update swing foot position
 
     // If it's the first step, or we are in double support, keep the foot on the ground
@@ -648,7 +648,6 @@ if(walkState.footstepCounter == 0){
         next.rightFootAcc = Eigen::Vector3d::Zero();
         next.rightFootOrient(2) += 5 * timeSinceFootstepStart * kSwingFoot * wrapToPi(footstepPredicted(3) - current.rightFootOrient(2));
         // next.rightFootOrient(1) = 0*0.0523599 ;
-
 
     } else {
 

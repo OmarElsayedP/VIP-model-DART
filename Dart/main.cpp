@@ -8,6 +8,7 @@
 
 int main(int argc, char* argv[])
 {
+    // std::cout << "main before new world" << '\n';
   // Create a world
   dart::simulation::WorldPtr world(new dart::simulation::World);
 
@@ -57,7 +58,7 @@ int main(int argc, char* argv[])
   viewer.addWorldNode(node);
 
   // Set recording
-  viewer.record("../data","frame");
+  // viewer.record("../data","frame");
 
   // Pass in the custom event handler
   viewer.addEventHandler(new HRP4EventHandler(node));
@@ -91,6 +92,7 @@ if (sim == 2){
         ::osg::Vec3d( 0.50,  -1.00, 0.00),
         ::osg::Vec3d( 0.00,  0.00, 0.1));
 }
+    // std::cout << "main before new world" << std::endl;
 
   // We need to re-dirty the CameraManipulator by passing it into the viewer
   // again, so that the viewer knows to update its HomePosition setting
