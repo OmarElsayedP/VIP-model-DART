@@ -14,7 +14,7 @@ const double doubleSupportDuration = 0.2;
 const double predictionTime = 1.0;
 
 // Walk parameters
-const double stepHeight = 0.025;
+const double stepHeight = 0.025; //0.025
 const double comTargetHeight = 0.71; //0.72
 // const double comTargetHeight = 0.75;
 // const double kSwingFoot = 0.05; //0.05;

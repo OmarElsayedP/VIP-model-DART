@@ -48,15 +48,14 @@ void FootstepPlan::plan(std::vector<Vref> vrefSequence, Eigen::VectorXd initialL
             // if (i<2) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*50;
             // else tempFootstep << (i-1)*0.1, pow(-1,i+1)*0.08, 0.0, 0.0, 0.0, 0.0, i*50;
             // if(i==0) tempFootstp << 0.0, 0.075, 0.0, 0.0, 0.0, 0.0, i*50;
-            if(i==0)  tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*70;
-            if(i==1) tempFootstep << 0.0, -0.075, 0.0, 0.0, 0.0, 0.0, i*70;
+            if(i==0) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*70;
+            if (i==1) tempFootstep << 0.0, -0.075, 0.0, 0.0, 0.0, 0.0, i*70;
             // if(i>1) tempFootstep << (i-1)*0.05, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
 
             if(i>1) tempFootstep << (i-1)*0.1, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
 
             // if(i>7) tempFootstep << (7-1)*0.1, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
 
-            // tempFootstep << 0.0, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
             footstepPlan.push_back(tempFootstep);
         }
 
