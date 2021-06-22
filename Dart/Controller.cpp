@@ -266,6 +266,11 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.open ("../txts/errorfoot_y.txt",ios::trunc);
         myfile.close();
 
+        myfile.open ("../txts/errorfoot_thetax.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/errorfoot_thetay.txt",ios::trunc);
+        myfile.close();
+
         myfile.open ("../txts/actualOrientation_x.txt",ios::trunc);
         myfile.close();
         myfile.open ("../txts/actualOrientation_y.txt",ios::trunc);
@@ -502,9 +507,20 @@ void Controller::update() {
         error_xa = (mBase->getCOMLinearAcceleration()(0) - previous_desired.comAcc(0));
         error_ya = (mBase->getCOMLinearAcceleration()(1) - previous_desired.comAcc(1));
 
-        errorfoot_x = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
-        errorfoot_y = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
+        errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
+        errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
 
+        errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
+        errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
+
+// std::cout << "current.getRelComPose(walkState.supportFoot) = " << current.getRelComPose(walkState.supportFoot) << std::endl;
+
+// std::cout << "error_x= " << error_x << std::endl;
+// std::cout << "error_y= " << error_y << std::endl;
+// std::cout << "errorfoot_x= " << errorfoot_x << std::endl;
+// std::cout << "errorfoot_y= " << errorfoot_y << std::endl;
+        // std::cout << "previous_desired.getRelComPose(walkState.supportFoot)(3)) = " << previous_desired.getRelComPose(walkState.supportFoot)(3) << std::endl;
+        // std::cout << "previous_desired.getRelComPose(walkState.supportFoot)(4)) = " << previous_desired.getRelComPose(walkState.supportFoot)(4) << std::endl;
 
 
         // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(0) - desired.getRelComPose(walkState.supportFoot)(0));
@@ -690,9 +706,16 @@ void Controller::update() {
 // std::cout << "desired_cam.comPos = " << desired_cam.comPos << std::endl;
 
         //Relevant Gain
-        desired_cam.comPos(0) = 0.01*errorfoot_x;
-        desired_cam.comPos(1) = 0.01*errorfoot_y;
+            if(walkState.footstepCounter > 0){
+        // desired_cam.comPos(0) = 0.01*errorfoot_x + 0.1*errorfoot_thetax;
+        // desired_cam.comPos(1) = 0.01*errorfoot_y + 0.1*errorfoot_thetay;
 
+                desired_cam.comPos(0) = 0.01*errorfoot_thetax;
+                desired_cam.comPos(1) = 0.01*errorfoot_thetay;
+                // desired_cam.zmpPos(0) = 0.0;
+                // desired_cam.zmpPos(1) = 0.0;
+            }
+            // desired_cam.comPos(2) = 0.0;
         // desired_cam.comPos(0) = 1.0*(current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
         // desired_cam.comPos(1) = 1.0*(current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
 
@@ -711,6 +734,7 @@ void Controller::update() {
 
         // current_cam.comPos = desired_cam.comPos;
         desiredTorques = computeTorques();
+        // desiredTorques = Eigen::VectorXd::Zero(3);
         angularAcceleration = MOI.inverse()*desiredTorques;
         mAngularPosition += mAngularVelocity*mpcTimeStep + angularAcceleration*0.5*pow(mpcTimeStep,2);
         mAngularVelocity += angularAcceleration*mpcTimeStep;
@@ -1220,7 +1244,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
 
     // Swing Foot Orientation
     _taskGain(6,6) = 2;
-    _taskGain(7,7) = 9; //6
+    _taskGain(7,7) = 6; //6
     _taskGain(8,8) = 1;
 
     // Swing Foot Position
@@ -1234,6 +1258,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
 // std::cout << "error = " << desired_pos - actual_pos << std::endl;
 
         Eigen::VectorXd error_foot(12);
+        error_foot = Eigen::VectorXd::Zero(12);
         error_foot = desired_pos - actual_pos;
         error_torsoAngle_foot << error_foot(0), error_foot(1), error_foot(2);
         error_torsoPos_foot << error_foot(3), error_foot(4), error_foot(5);
@@ -1650,6 +1675,13 @@ void Controller::storeData() {
         myfile << errorfoot_y <<endl; 
         myfile.close();
 
+        myfile.open ("../txts/errorfoot_thetax.txt",ios::app);
+        myfile << errorfoot_thetax <<endl;
+        myfile.close();
+        myfile.open ("../txts/errorfoot_thetay.txt",ios::app);
+        myfile << errorfoot_thetay <<endl;
+        myfile.close();
+
         myfile.open ("../txts/desiredTorsoPosition_x.txt",ios::app);
         myfile << desired.torsoOrient(0) <<endl; 
         myfile.close();
@@ -1788,10 +1820,10 @@ void Controller::storeData() {
         myfile << error_footPos_foot(0) <<endl; 
         myfile.close();
         myfile.open ("../txts/error_footPos_foot_y.txt",ios::app);
-        myfile << error_footPos_foot(0) <<endl; 
+        myfile << error_footPos_foot(1) <<endl; 
         myfile.close();
         myfile.open ("../txts/error_footPos_foot_z.txt",ios::app);
-        myfile << error_footPos_foot(0) <<endl;
+        myfile << error_footPos_foot(2) <<endl;
         myfile.close();
 
 }

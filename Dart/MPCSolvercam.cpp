@@ -290,6 +290,8 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
         std::cout << angleConstraint << std::endl;
         std::cout << CAM << std::endl;
                     // std::cout << pmg << std::endl;
+        currentThetaD = AngularVelocity;
+        currentTheta = AngularPosition;
         if(angleConstraint){
 
             // std::cout<<"1"<<std::endl;
@@ -322,8 +324,6 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
             // std::cout << "desiredTorque = " << desiredTorque << std::endl;
             // std::cout<<"9"<<std::endl;
 
-        currentThetaD = AngularVelocity;
-        currentTheta = AngularPosition;
 
         // desiredTorque.block(2,0,1,1) << ((x_tot-no_current.zmpPos(0))*desiredTorque(0)+(y_tot-no_current.zmpPos(1))*desiredTorque(1))/comTargetHeight;
         // std::cout<<"desiredTorque = " << desiredTorque << std::endl;

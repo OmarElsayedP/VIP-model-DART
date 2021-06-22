@@ -664,14 +664,12 @@ if(walkState.footstepCounter == 0){
 
     }
 
-// }
-
     //std::cout << "footstepPredicted.head(3)" <<std::endl;
     //std::cout << footstepPredicted.head(3) - current.rightFootPos <<std::endl;
 
-    foutDebug << next.rightFootPos.transpose() << " " << next.leftFootPos.transpose() << " " << footstepPredicted.head(3).transpose() << std::endl;
+    // foutDebug << next.rightFootPos.transpose() << " " << next.leftFootPos.transpose() << " " << footstepPredicted.head(3).transpose() << std::endl;
 
-    next.torsoOrient(2) = wrapToPi((next.leftFootOrient(2) + next.rightFootOrient(2)) / 2.0);
+    // next.torsoOrient(2) = wrapToPi((next.leftFootOrient(2) + next.rightFootOrient(2)) / 2.0);
 
     old_fsCount = fsCount;
     ct = ct + 1;
