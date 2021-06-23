@@ -508,8 +508,11 @@ void Controller::update() {
         error_xa = (mBase->getCOMLinearAcceleration()(0) - previous_desired.comAcc(0));
         error_ya = (mBase->getCOMLinearAcceleration()(1) - previous_desired.comAcc(1));
 
-        errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
-        errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
+
+        std::cout << "errorfoot_x and error_foot_y are current - desired not current - previous_desired" << std::endl;
+
+        errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - desired.getRelComPose(walkState.supportFoot)(3));
+        errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - desired.getRelComPose(walkState.supportFoot)(4));
 
         errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
         errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
