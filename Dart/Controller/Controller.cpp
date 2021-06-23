@@ -266,6 +266,11 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.open ("../txts/errorfoot_y.txt",ios::trunc);
         myfile.close();
 
+        myfile.open ("../txts/errorfoot_thetax.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/errorfoot_thetay.txt",ios::trunc);
+        myfile.close();
+
         myfile.open ("../txts/actualOrientation_x.txt",ios::trunc);
         myfile.close();
         myfile.open ("../txts/actualOrientation_y.txt",ios::trunc);
@@ -396,7 +401,7 @@ void Controller::update() {
 
 
     //if (mWorld->getSimFrames()==500) system("gnuplot ../plotters/plot");
-    walkState.simulationTime = mWorld->getSimFrames();
+    // walkState.simulationTime = mWorld->getSimFrames();
 
 
     // std::cout << "walkState.simulationTime = " << walkState.simulationTime << std::endl;
@@ -406,24 +411,26 @@ void Controller::update() {
     // current.comPos = balancePoint == TORSO ? mBase->getCOM() : mRobot->getCOM();
     // current.comVel = balancePoint == TORSO ? mBase->getCOMLinearVelocity() : mRobot->getCOMLinearVelocity();
     // current.comAcc = balancePoint == TORSO ? mBase->getCOMLinearAcceleration() : mRobot->getCOMLinearAcceleration();
+    if(!VIPsturn){
 
     current.comPos = balancePoint == TORSO ? mBase->getCOM() : mRobot->getCOM();
     current.comVel = balancePoint == TORSO ? mBase->getCOMLinearVelocity() : mRobot->getCOMLinearVelocity();
     current.comAcc = balancePoint == TORSO ? mBase->getCOMLinearAcceleration() : mRobot->getCOMLinearAcceleration();
-// }
+}
 
     // current.comPos = mRobot->getCOM();
     // current.comVel = mRobot->getCOMLinearVelocity();
     // current.comAcc = mRobot->getCOMLinearAcceleration();
 /**/
     // if(!VIPsturn || !isDoublePendulum){
+    if(!VIPsturn){
     current.zmpPos = current.comPos - current.comAcc / (omega*omega);
     current.leftFootPos = mLeftFoot->getCOM();
     current.rightFootPos = mRightFoot->getCOM();
     current.torsoOrient = getRPY(mBase);
     current.leftFootOrient = getRPY(mLeftFoot);
     current.rightFootOrient = getRPY(mRightFoot);
-
+}
 // Eigen::Isometry3d centerTf(Eigen::Isometry3d::Identity());
 // centerTf.translation() = mTorso->getCOM();
 // centerTf.linear() = mTorso->getTransform().linear();
@@ -489,6 +496,8 @@ void Controller::update() {
     {
         desired = solver->solve(desired, desired_cam, walkState, 0.0, 0.0, 0.0, virt_torq, 0.0);
     }
+    std::cout << "desired.comPos = " << desired.comPos << std::endl;
+    std::cout << "desired.zmpPos = " << desired.zmpPos << std::endl;
 
         error_x = (mBase->getCOM()(0) - previous_desired.comPos(0));
         error_y = (mBase->getCOM()(1) - previous_desired.comPos(1));
@@ -499,8 +508,8 @@ void Controller::update() {
         error_xa = (mBase->getCOMLinearAcceleration()(0) - previous_desired.comAcc(0));
         error_ya = (mBase->getCOMLinearAcceleration()(1) - previous_desired.comAcc(1));
 
-        // errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
-        // errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
+        errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
+        errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
 
         // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
         // errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
@@ -704,8 +713,8 @@ void Controller::update() {
 
         //Relevant Gain
             // if(walkState.footstepCounter > 99){
-        desired_cam.comPos(0) = 0.01*errorfoot_x;
-        desired_cam.comPos(1) = 0.01*errorfoot_y;
+        desired_cam.comPos(0) = 0.0*errorfoot_x;
+        desired_cam.comPos(1) = 0.0*errorfoot_y;
 // }
 // std::cout << "desired_cam.comPos" << desired_cam.comPos << std::endl;
         // desired_cam.comPos(0) = 1.0*(current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
@@ -726,7 +735,7 @@ void Controller::update() {
 
         // current_cam.comPos = desired_cam.comPos;
         desiredTorques = computeTorques();
-        desiredTorques = Eigen::VectorXd::Zero(3);
+        // desiredTorques = Eigen::VectorXd::Zero(3);
         angularAcceleration = MOI.inverse()*desiredTorques;
         mAngularPosition += mAngularVelocity*mpcTimeStep + angularAcceleration*0.5*pow(mpcTimeStep,2);
         mAngularVelocity += angularAcceleration*mpcTimeStep;
@@ -782,10 +791,9 @@ void Controller::update() {
         // std::cout << "before getJointVelocitiesDoublePendulum" << std::endl;
 // std::cout << "REMOVE THE DESIRED ORIENTATION PART PLEASE" << std::endl;
 // desired.torsoOrient << 0.0, -M_PI/180, 0.0;
-
+// std::cout << "qDot = " << qDot << std::endl;
         qDot =  getJointVelocitiesDoublePendulum(desired.getRelComPose(walkState.supportFoot), current.getRelComPose(walkState.supportFoot),
          desired.getRelSwingFootPose(walkState.supportFoot), current.getRelSwingFootPose(walkState.supportFoot), desired.comVel, mAngularVelocity, desired.torsoOrient, current.torsoOrient);
-
 
     // Set the velocity of the floating base to zero
     for (int i = 0; i < 6; ++i){
@@ -803,9 +811,8 @@ void Controller::update() {
     //storeData();
 
     // Arm swing
-    // ArmSwing();
+    // if(!VIPsturn) ArmSwing();
     // if(!isDoublePendulum || !VIPsturn){
-// }
     // std::cout << angularAcceleration << std::endl;
 
     // Eigen::Vector3d AngularMomentum = ComputeAngularMomentum();
@@ -818,7 +825,7 @@ void Controller::update() {
     if(VIPsturn){
     ++walkState.controlIter;
 }
-if(VIPsturn){
+// if(VIPsturn){
     walkState.mpcIter = floor(walkState.controlIter*controlTimeStep/mpcTimeStep);
     if (footstepPlan->getFootstepStartTiming(walkState.footstepCounter) + walkState.mpcIter >= footstepPlan->getFootstepEndTiming(walkState.footstepCounter)) {
     	walkState.controlIter = 0;
@@ -828,9 +835,11 @@ if(VIPsturn){
         // std::cout << "Iteration " << walkState.controlIter << " Footstep " << walkState.footstepCounter << std::endl;
         // std::cout <<  mWorld->getSimFrames() << std::endl;
     }
-}
+
+    // std::cout << "mWorld->getSimFrames() = " << mWorld->getSimFrames() << std::endl;
 // }
-std::cout << "controlIter = " << walkState.controlIter << '\n';
+// }
+// std::cout << "controlIter = " << walkState.controlIter << '\n';
 // std::cout << "mpcIter = " << walkState.mpcIter << '\n';
 
     // std::cout << "EH YABA"<< endl;
@@ -862,8 +871,8 @@ Eigen::Vector3d Controller::computeTorques()
     mDesiredTorque(0) = -desired_cam.zmpPos(1)*mTorsoMass*9.81;
     mDesiredTorque(1) = desired_cam.zmpPos(0)*mTorsoMass*9.81;
 
-    mDesiredTorque(2) = ((totalCOMx-previous_desired.zmpPos(0))* mDesiredTorque(0) 
-        + (totalCOMy-previous_desired.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
+    mDesiredTorque(2) = ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
+        + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
     // mDesiredTorque(2) = 0.0;
 
     // std::cout <<  ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
@@ -1137,16 +1146,32 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
         ComVref<<desidercam_com_vel(0), desidercam_com_vel(1), desidercam_com_vel(2), desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
 
     Eigen::VectorXd desired_pos(12);
-    desired_pos << desider_pos_base, desider_pos_SwingFoot;
-    // desired_pos << desired_world(0), desired_world(1), desired_world(2), desider_pos_base(3), desider_pos_base(4), desider_pos_base(5), desider_pos_SwingFoot;
+    // desired_pos << desider_pos_base, desider_pos_SwingFoot;
 
         // desired_pos(1) = desired_pos(1) + 0.01;
         // desired_pos(3) = desired_pos(3) ; //0.05  0.02
 
     // Assemble actual positions and orientations
     Eigen::VectorXd actual_pos(12);
-    actual_pos << actPosBase, actPosSwingFoot;
+    // actual_pos << actPosBase, actPosSwingFoot;
     // actual_pos << current_world(0), current_world(1), current_world(2), actPosBase(3), actPosBase(4), actPosBase(5), actPosSwingFoot;
+
+    if(VIPsturn)
+        {
+            ComVref<<desidercam_com_vel(0), desidercam_com_vel(1), desidercam_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+            
+            desired_pos << desider_pos_base(0), desider_pos_base(1), desider_pos_base(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+            actual_pos << actPosBase(0), actPosBase(1), actPosBase(2), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+            
+            // desired_pos << desider_pos_base(0), desider_pos_base(1), desider_pos_base(2), 0.0, 0.0, 0.0, desider_pos_SwingFoot;
+            // actual_pos << actPosBase(0), actPosBase(1), actPosBase(2), 0.0, 0.0, 0.0, actPosSwingFoot;
+        }
+        else
+        {
+            ComVref<< 0.0, 0.0, 0.0, desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
+            desired_pos <<  0.0, 0.0, 0.0, desider_pos_base(3), desider_pos_base(4), desider_pos_base(5),desider_pos_SwingFoot;
+            actual_pos <<  0.0, 0.0, 0.0, actPosBase(3), actPosBase(4), actPosBase(5), actPosSwingFoot;
+        }
 
     // Get the proper jacobian and pseudoinvert it
     Eigen::MatrixXd Jacobian_tot = getTorsoAndSwfJacobian();
@@ -1225,36 +1250,36 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
 
         // double ikGain = 10;
 
-    if(VIPsturn)
-    {
-        ComVref(0) = 0;
-        ComVref(1) = 0;
-        ComVref(2) = 0;
-        ComVref(3) = 0;
-        ComVref(4) = 0;
-        ComVref(5) = 0;
+    // if(VIPsturn)
+    // {
+    //     ComVref(0) = 0;
+    //     ComVref(1) = 0;
+    //     ComVref(2) = 0;
+    //     ComVref(3) = 0;
+    //     ComVref(4) = 0;
+    //     ComVref(5) = 0;
 
-    _taskGain(0,0) = 0;//0.1
-    _taskGain(1,1) = 0;//0.8;
-    _taskGain(2,2) = 0;//0.1;
+    // _taskGain(0,0) = 0;//0.1
+    // _taskGain(1,1) = 0;//0.8;
+    // _taskGain(2,2) = 0;//0.1;
 
-    // CoM Position
-    _taskGain(3,3) = 0;  //5
-    _taskGain(4,4) = 0; //5
-    _taskGain(5,5) = 0; //0.5 IT WAS ONE BEFORE !!!!
+    // // CoM Position
+    // _taskGain(3,3) = 0;  //5
+    // _taskGain(4,4) = 0; //5
+    // _taskGain(5,5) = 0; //0.5 IT WAS ONE BEFORE !!!!
 
-    // Swing Foot Orientation
-    _taskGain(6,6) = 0;
-    _taskGain(7,7) = 0; //6
-    _taskGain(8,8) = 0;
+    // // Swing Foot Orientation
+    // _taskGain(6,6) = 0;
+    // _taskGain(7,7) = 0; //6
+    // _taskGain(8,8) = 0;
 
-    // Swing Foot Position
-    _taskGain(9,9) = 0; //5
-    _taskGain(10,10) = 0; //5
-    _taskGain(11,11) = 0; //5
-    }
-    else
-    {
+    // // Swing Foot Position
+    // _taskGain(9,9) = 0; //5
+    // _taskGain(10,10) = 0; //5
+    // _taskGain(11,11) = 0; //5
+    // }
+    // else
+    // {
 
     _taskGain(0,0) = 0.1;//0.1
     _taskGain(1,1) = 0.8;//0.8;
@@ -1274,7 +1299,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
     _taskGain(9,9) = 5; //5
     _taskGain(10,10) = 5; //5
     _taskGain(11,11) = 5; //5
-    }
+    // }
         double ikGain = 10;
         ikGain = 9;
 // std::cout << "ComVref = " << ComVref << std::endl;
@@ -1516,8 +1541,8 @@ void Controller::ArmSwing() {
 // TO DO: add variable period to the swing trajecotry
     double TimePeriod = (singleSupportDuration + doubleSupportDuration) * 2 * 100;
 // if(    walkState.footstepCounter > 0){
-mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
-mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180  );
+mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames()/2)))*M_PI/180 );
+mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames()/2)))*M_PI/180  );
 // }
 }
 
@@ -1697,6 +1722,14 @@ void Controller::storeData() {
         myfile.open ("../txts/errorfoot_y.txt",ios::app);
         myfile << errorfoot_y <<endl; 
         myfile.close();
+
+        myfile.open ("../txts/errorfoot_thetax.txt",ios::app);
+        myfile << errorfoot_thetax <<endl;
+        myfile.close();
+        myfile.open ("../txts/errorfoot_thetay.txt",ios::app);
+        myfile << errorfoot_thetay <<endl;
+        myfile.close();
+
 
         myfile.open ("../txts/desiredTorsoPosition_x.txt",ios::app);
         myfile << desired.torsoOrient(0) <<endl; 
