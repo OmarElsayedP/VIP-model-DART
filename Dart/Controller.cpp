@@ -108,7 +108,7 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     previous_desired = desired;
 
     //Desired cam values
-    desired_cam.comPos = Eigen::Vector3d(current_cam.comPos(0), current_cam.comPos(1), comTargetHeight);
+    desired_cam.comPos = Eigen::Vector3d::Zero();
     desired_cam.comVel = Eigen::Vector3d::Zero();
     desired_cam.zmpPos = Eigen::Vector3d(0.0, 0.0,0.0);
     desired_cam.leftFootPos = Eigen::Vector3d(0.0, FootStepY, 0.0);
@@ -697,11 +697,11 @@ void Controller::update() {
 // std::cout << "desired_cam.comPos = " << desired_cam.comPos << std::endl;
 
         //Relevant Gain
-        desired_cam.comPos(0) = 0.1*errorfoot_x;
-        desired_cam.comPos(1) = 0.1*errorfoot_y;
+        // desired_cam.comPos(0) = 0.01*errorfoot_x + errorfoot_thetax;
+        // desired_cam.comPos(1) = 0.01*errorfoot_y + errorfoot_thetay;
 
-        // desired_cam.comPos(0) = 0.1*errorfoot_x - 0.01*errorfoot_thetay;
-        // desired_cam.comPos(1) = 0.1*errorfoot_y - 0.01*errorfoot_thetax;
+        desired_cam.comPos(0) = 0.01*errorfoot_x;
+        desired_cam.comPos(1) = 0.01*errorfoot_y;
 
         // desired_cam.comPos(0) = 1.0*(current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
         // desired_cam.comPos(1) = 1.0*(current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
@@ -797,7 +797,7 @@ void Controller::update() {
     //storeData();
 
     // Arm swing
-    // ArmSwing();
+    ArmSwing();
     // if(!isDoublePendulum || !VIPsturn){
 // }
     // std::cout << angularAcceleration << std::endl;

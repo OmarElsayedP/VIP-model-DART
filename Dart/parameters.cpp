@@ -40,7 +40,7 @@ const double deltaYOut = 0.28;
 
 // Cost function weights
 const double qZd = 1;
-const double qZd_cam = 1;
+const double qZd_cam = 0.1;
 
 const double qVx = 0;//100;
 const double qVy = 0;//100;

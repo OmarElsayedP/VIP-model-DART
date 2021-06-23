@@ -126,6 +126,8 @@ StateFiltering* Filter;
 
 double errorfoot_x;
 double errorfoot_y;
+double errorfoot_thetax;
+double errorfoot_thetay;
 double error_x;
 double error_y;
 

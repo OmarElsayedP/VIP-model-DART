@@ -219,25 +219,25 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
     // Construct the stability constraint
     // **********************************
 // // Periodic tail
-    double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
-    for(int i = 0; i < N; ++i) {
-        Aeq_cam(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-        Aeq_cam(1,N+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-    }
-    
-    beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
-           current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
-
-
-// //Truncated tail
-    // double lambda_tail = exp(-omega*mpcTimeStep);
+    // double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
     // for(int i = 0; i < N; ++i) {
-    //     Aeq_cam(0,i)  = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
-    //     Aeq_cam(1,N+i) = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+    //     Aeq_cam(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
+    //     Aeq_cam(1,N+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
     // }
     
     // beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
     //        current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
+
+
+// //Truncated tail
+    double lambda_tail = exp(-omega*mpcTimeStep);
+    for(int i = 0; i < N; ++i) {
+        Aeq_cam(0,i)  = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+        Aeq_cam(1,N+i) = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+    }
+    
+    beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
+           current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
 
 
     // int prev = 200;
