@@ -514,6 +514,10 @@ void Controller::update() {
         errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - desired.getRelComPose(walkState.supportFoot)(3));
         errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - desired.getRelComPose(walkState.supportFoot)(4));
 
+
+        // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
+        // errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
+
         errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
         errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
 
