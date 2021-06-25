@@ -38,21 +38,24 @@ void FootstepPlan::plan(std::vector<Vref> vrefSequence, Eigen::VectorXd initialL
 
     //         // if(i>1) tempFootstep << (i-1)*0.15, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*50;
 
-    //         footstepPlan.push_back(tempFootstep);
+    //         footstepPlan.push_back(tempootstep);
     //     }
 
     //slower footsteps (Must change singleSupportDuration, doubleSupportDuration and doubleSupportSamples)
+    int samplesPerStep = (singleSupportDuration+doubleSupportDuration)/controlTimeStep;
+        // std::cout << "" << doubleSupportSamples << std::endl;
+    // std::cout << "samplesPerStep" << samplesPerStep << std::endl;
         for (int i = 0; i < nFootsteps; i++) {
             // it is in world frame!
             Eigen::VectorXd tempFootstep(7);
             // if (i<2) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*50;
             // else tempFootstep << (i-1)*0.1, pow(-1,i+1)*0.08, 0.0, 0.0, 0.0, 0.0, i*50;
             // if(i==0) tempFootstp << 0.0, 0.075, 0.0, 0.0, 0.0, 0.0, i*50;
-            if(i==0) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*70;
-            if (i==1) tempFootstep << 0.0, -0.075, 0.0, 0.0, 0.0, 0.0, i*70;
-            // if(i>1) tempFootstep << (i-1)*0.05, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
+            if(i==0) tempFootstep << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, i*samplesPerStep;
+            if (i==1) tempFootstep << 0.0, -0.075, 0.0, 0.0, 0.0, 0.0, i*samplesPerStep;
+            if(i>1) tempFootstep << (i-1)*0.2, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*samplesPerStep;
 
-            if(i>1) tempFootstep << (i-1)*0.1, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
+            // if(i>1) tempFootstep << (i-1)*0.1, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
 
             // if(i>7) tempFootstep << (7-1)*0.1, pow(-1,i)*0.075, 0.0, 0.0, 0.0, 0.0, i*70;
 

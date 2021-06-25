@@ -8,53 +8,37 @@ MPCSolvercam::MPCSolvercam(FootstepPlan* _footstepPlan, int sim, bool CAM, doubl
     this->CAM = angleConstraint;
     ds_samples = doubleSupportSamples;
 
-
-    if(angleConstraint){
-        std::cout<< "HERE!" <<std::endl;
-        costFunctionHcam = Eigen::MatrixXd::Zero(4*N,2*N);
-        costFunctionFcam = Eigen::VectorXd::Zero(4*N);
-        AConstraintcam = Eigen::MatrixXd::Zero(4*N+2,2*N);
-        bConstraintMincam = Eigen::VectorXd::Zero(4*N+2);
-        bConstraintMaxcam = Eigen::VectorXd::Zero(4*N+2);
-        costFunctionHcam = Eigen::MatrixXd::Zero(2*N,2*N);
-        costFunctionFcam = Eigen::VectorXd::Zero(2*N);
-        
-        AAngleconstr = Eigen::MatrixXd::Zero(2*N,2*N);
-        bAngleConstrMin = Eigen::VectorXd::Zero(2*N);
-        bAngleConstrMax = Eigen::VectorXd::Zero(2*N);
-
         currentTheta = Eigen::Vector3d::Zero(3);
         currentThetaD = Eigen::Vector3d::Zero(3);
         currentThetaDD = Eigen::Vector3d::Zero(3);
-
         this->MOI = MOI;
-
         desiredTorque = Eigen::MatrixXd::Zero(3,N);
         this->theta_max = theta_max;
 
-            Atermconstr = Eigen::MatrixXd::Zero(2, 2*N);
-            btermconstr = Eigen::VectorXd::Zero(2);
-    }
-    else{
-        if(termConstr){
-            Atermconstr = Eigen::MatrixXd::Zero(2, 2*N);
-            btermconstr = Eigen::VectorXd::Zero(2);
-            AConstraintcam = Eigen::MatrixXd::Zero(2*N+4,2*N);
-            bConstraintMincam = Eigen::VectorXd::Zero(2*N+4);
-            bConstraintMaxcam = Eigen::VectorXd::Zero(2*N+4);
-        }
-            AConstraintcam = Eigen::MatrixXd::Zero(2*N+2,2*N);
-            bConstraintMincam = Eigen::VectorXd::Zero(2*N+2);
-            bConstraintMaxcam = Eigen::VectorXd::Zero(2*N+2);
-    }
-
-    costFunctionHcam = Eigen::MatrixXd::Zero(2*N,2*N);
-    costFunctionFcam = Eigen::VectorXd::Zero(2*N);
+        costFunctionHcam = Eigen::MatrixXd::Zero(2*N,2*N);
+        costFunctionFcam = Eigen::VectorXd::Zero(2*N);
     AZmp_cam = Eigen::MatrixXd::Zero(2*N,2*N);
     bZmpMax_cam = Eigen::VectorXd::Zero(2*N);
     bZmpMin_cam = Eigen::VectorXd::Zero(2*N);
     Aeq_cam = Eigen::MatrixXd::Zero(2,N*2);
     beq_cam = Eigen::VectorXd::Zero(2);
+
+    if(angleConstraint){
+        std::cout<< "HERE!" <<std::endl;
+
+        AConstraintcam = Eigen::MatrixXd::Zero(4*N+2,2*N);
+        bConstraintMincam = Eigen::VectorXd::Zero(4*N+2);
+        bConstraintMaxcam = Eigen::VectorXd::Zero(4*N+2);
+        
+        AAngleconstr = Eigen::MatrixXd::Zero(2*N,2*N);
+        bAngleConstrMin = Eigen::VectorXd::Zero(2*N);
+        bAngleConstrMax = Eigen::VectorXd::Zero(2*N);
+    }
+    else{
+            AConstraintcam = Eigen::MatrixXd::Zero(2*N+2,2*N);
+            bConstraintMincam = Eigen::VectorXd::Zero(2*N+2);
+            bConstraintMaxcam = Eigen::VectorXd::Zero(2*N+2);
+    }
 
     // Matrices for all constraints stacked        
     // Matrices for ZMP prediction
@@ -167,6 +151,7 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
     Atermconstr.setZero();
     costFunctionHcam.setZero();
     costFunctionFcam.setZero();
+    Aeq_cam.setZero();
     // Get the pose of the support foot in the world frame
     // Eigen::VectorXd supportFootPose = current.getSupportFootPose(walkState.supportFoot);
 
@@ -219,25 +204,25 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
     // Construct the stability constraint
     // **********************************
 // // Periodic tail
-    // double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
-    // for(int i = 0; i < N; ++i) {
-    //     Aeq_cam(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-    //     Aeq_cam(1,N+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
-    // }
-    
-    // beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
-    //        current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
-
-
-// //Truncated tail
-    double lambda_tail = exp(-omega*mpcTimeStep);
+    double stabConstrMultiplierP = (1-exp(-omega*mpcTimeStep)) / (1-pow(exp(-omega*mpcTimeStep),N));
     for(int i = 0; i < N; ++i) {
-        Aeq_cam(0,i)  = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
-        Aeq_cam(1,N+i) = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+        Aeq_cam(0,i)     = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
+        Aeq_cam(1,N+i) = stabConstrMultiplierP * exp(-omega*mpcTimeStep*i)/omega;
     }
     
     beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
            current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
+
+
+// //Truncated tail
+    // double lambda_tail = exp(-omega*mpcTimeStep);
+    // for(int i = 0; i < N; ++i) {
+    //     Aeq_cam(0,i)  = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+    //     Aeq_cam(1,N+i) = (1/omega)*(1-lambda_tail)*exp(-omega*mpcTimeStep*i);
+    // }
+    
+    // beq_cam << current_cam.comPos(0) + current_cam.comVel(0)/omega - current_cam.zmpPos(0),
+    //        current_cam.comPos(1) + current_cam.comVel(1)/omega - current_cam.zmpPos(1);
 
 
     // int prev = 200;

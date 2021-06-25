@@ -641,12 +641,17 @@ if(walkState.footstepCounter == 0){
         next.rightFootPos = current.rightFootPos;
         }  else  {
     next.rightFootPos += kSwingFoot * (footstepPredicted.head(3) - current.rightFootPos);
+    if(next.rightFootPos(0) >= footstepPredicted(0) || next.rightFootPos(1) >= footstepPredicted(1)) 
+    {
+        next.rightFootPos = footstepPredicted.head(3);
+    }
         }
 
         next.rightFootPos(2) = swingFootHeight;
         next.rightFootVel = Eigen::Vector3d::Zero();
         next.rightFootAcc = Eigen::Vector3d::Zero();
         next.rightFootOrient(2) += 5 * timeSinceFootstepStart * kSwingFoot * wrapToPi(footstepPredicted(3) - current.rightFootOrient(2));
+        // std::cout << "next.rightFootOrient(2)" << next.rightFootOrient(2) << std::endl;
         // next.rightFootOrient(1) = 0*0.0523599 ;
 
     } else {
@@ -655,6 +660,10 @@ if(walkState.footstepCounter == 0){
         next.leftFootPos = current.leftFootPos;
         } else {
     next.leftFootPos += kSwingFoot * (footstepPredicted.head(3) - current.leftFootPos);
+    if(next.leftFootPos(0) >= footstepPredicted(0) || next.leftFootOrient(1) >= footstepPredicted(1)) 
+    {
+        next.leftFootPos = footstepPredicted.head(3);
+    }
         }
 
         next.leftFootPos(2) = swingFootHeight;
@@ -671,7 +680,7 @@ if(walkState.footstepCounter == 0){
 
     foutDebug << next.rightFootPos.transpose() << " " << next.leftFootPos.transpose() << " " << footstepPredicted.head(3).transpose() << std::endl;
 
-    next.torsoOrient(2) = wrapToPi((next.leftFootOrient(2) + next.rightFootOrient(2)) / 2.0);
+    // next.torsoOrient(2) = wrapToPi((next.leftFootOrient(2) + next.rightFootOrient(2)) / 2.0);
 
     old_fsCount = fsCount;
     ct = ct + 1;
