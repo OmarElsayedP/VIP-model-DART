@@ -350,7 +350,7 @@ Eigen::VectorXd footy = Eigen::VectorXd::Zero(N);
 
 // std::cout <<  (CcFull.col(2)*fp.at(walkState.footstepCounter - 1 + 2)(0)).rows() << std::endl;
 
-for(int i=0; i<M ; ++i){
+for(int i=0; i<M+1; ++i){
     // std::cout << "CcFull.cols() = " << CcFull.cols()<< std::endl;
     // std::cout << footx.cols() << ", " << CcFull.col(i)*(fp.at(walkState.footstepCounter - 1 + i)(0)) << std::endl;
     footx = footx + CcFull.col(i)*fp.at(walkState.footstepCounter + i)(0);
@@ -429,7 +429,7 @@ if(walkState.footstepCounter == 0){
     footstepsRotationMatrix <<  rCosFootsteps, rSinFootsteps,
                    -rSinFootsteps, rCosFootsteps;
 
-    // Assemble the A matrix for the kinematic constraint, and rotate
+    // Assemble the A matrix for the kinematic constraint, and rotate 
     AFootsteps.block(0,N,M,M) = differenceMatrix;
     AFootsteps.block(M,2*N+M,M,M) = differenceMatrix;
     // AFootsteps = footstepsRotationMatrix * AFootsteps;
@@ -634,17 +634,16 @@ if(walkState.footstepCounter == 0){
     // if(walkState.footstepCounter == 0) footstepPredicted+0.075;
 // std::cout << "walkState.supportFoot=" << walkState.supportFoot << std::endl;
     // If support foot is left, move right foot
-    // if(walkState.footstepCounter > 0){
+
+
+//***************************************************
+    // swingFootHeight = 0.0;
     if (walkState.supportFoot == 0) {
 
         if (samplesTillNextFootstep <= ds_samples ){
         next.rightFootPos = current.rightFootPos;
         }  else  {
     next.rightFootPos += kSwingFoot * (footstepPredicted.head(3) - current.rightFootPos);
-    if(next.rightFootPos(0) >= footstepPredicted(0) || next.rightFootPos(1) >= footstepPredicted(1)) 
-    {
-        next.rightFootPos = footstepPredicted.head(3);
-    }
         }
 
         next.rightFootPos(2) = swingFootHeight;
@@ -660,10 +659,6 @@ if(walkState.footstepCounter == 0){
         next.leftFootPos = current.leftFootPos;
         } else {
     next.leftFootPos += kSwingFoot * (footstepPredicted.head(3) - current.leftFootPos);
-    if(next.leftFootPos(0) >= footstepPredicted(0) || next.leftFootOrient(1) >= footstepPredicted(1)) 
-    {
-        next.leftFootPos = footstepPredicted.head(3);
-    }
         }
 
         next.leftFootPos(2) = swingFootHeight;
@@ -673,7 +668,9 @@ if(walkState.footstepCounter == 0){
 
     }
 
-// }
+
+
+//*************************************************
 
     //std::cout << "footstepPredicted.head(3)" <<std::endl;
     //std::cout << footstepPredicted.head(3) - current.rightFootPos <<std::endl;

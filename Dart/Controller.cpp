@@ -77,6 +77,7 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     momentOfInertia << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
     -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
      0.045048560212699, 0.003172978374495, 0.048160214086886;
+     if(0) momentOfInertia = mRobot->getBodyNode(4)->getSpatialInertia().block(0,0,3,3); 
 
     //       momentOfInertia << 0.344345670122806, 0.0, 0.0, 
     // 0.0, 0.338324801980916, 0.0,
@@ -158,10 +159,13 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     // desiredTorques = Eigen::Vector3d::Zero();
     // TorquesDesired = Eigen::Vector3d::Zero(3);
 
+
     error_torsoAngle_foot = Eigen::Vector3d::Zero();
     error_torsoPos_foot = Eigen::Vector3d::Zero();
     error_footAngle_foot = Eigen::Vector3d::Zero();
     error_footPos_foot = Eigen::Vector3d::Zero();
+// std::cout <<"Fi ayy" << std::endl;
+    AngMomentum = Eigen::Vector3d::Zero();
 
     ofstream myfile;
 
@@ -208,6 +212,16 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.close();
         myfile.open ("../txts/yd_m.txt",ios::trunc);
         myfile.close();
+
+        myfile.open ("../txts/xdescom_foot.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/ydescom_foot.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/xactcom_foot.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/yactcom_foot.txt",ios::trunc);
+        myfile.close();
+
 
     
         myfile.open ("../txts/xcam.txt",ios::trunc);
@@ -259,6 +273,11 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.open ("../txts/error_x.txt",ios::trunc);
         myfile.close();
         myfile.open ("../txts/error_y.txt",ios::trunc);
+        myfile.close();
+
+        myfile.open ("../txts/error_xd.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/error_yd.txt",ios::trunc);
         myfile.close();
 
         myfile.open ("../txts/errorfoot_x.txt",ios::trunc);
@@ -337,6 +356,12 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.close();
 
 
+        myfile.open ("../txts/AngMomentumX.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/AngMomentumY.txt",ios::trunc);
+        myfile.close();
+        myfile.open ("../txts/AngMomentumZ.txt",ios::trunc);
+        myfile.close();
 }
 
 Controller::~Controller() {}
@@ -358,27 +383,17 @@ void Controller::update() {
     //     }
     // }
 
-    // if (mWorld->getSimFrames()==100)
-        // auto visualShapeNodes = mTorso->getShapeNodesWith<VisualAspect>();
-    // if(visualShapeNodes.size() == 3u )
-    // {
-    // //assert(visualShapeNodes[2]->getShape() == mArrow);
-    //     visualShapeNodes[2]->remove();
-    // }
-		
-    // if(visualShapeNodes.size() == 4u )
-    // {
-    // //assert(visualShapeNodes[2]->getShape() == mArrow);
-    //     visualShapeNodes[2]->remove();
-    //     visualShapeNodes[3]->remove();
-    // }
 
-        // std::cout << " mTorso->getCOM()->getPosition()/2 = " <<  mTorso->getCOM()->getPosition()/2 << std::endl;
-    // if (mWorld->getSimFrames()==100)
-    //     std::shared_ptr<ArrowShape> mArrow;
-    // if (mWorld->getSimFrames()==200)
+    auto visualShapeNodes = mTorso->getShapeNodesWith<VisualAspect>();
+
+    // // if (mWorld->getSimFrames()>=230 && mWorld->getSimFrames() <= 234)
+    // if (mWorld->getSimFrames()>=180 && mWorld->getSimFrames() <= 200)
     //  {   
-    //         mTorso->addExtForce(Eigen::Vector3d(0,200,0));        
+    //             std::shared_ptr<ArrowShape> mArrow;
+
+    //             // mTorso->addExtForce(Eigen::Vector3d(0,200,0));
+    //             mTorso->addExtForce(Eigen::Vector3d(0,200,0));
+    //             // mTorso->addExtForce(Eigen::Vector3d(300,0,0));
     // ArrowShape::Properties arrow_properties;
     // arrow_properties.mRadius = 0.05;
     // Eigen::Vector3d tail_pos = Eigen::Vector3d(0.0, -0.2, comTargetHeight/2) ;
@@ -393,12 +408,13 @@ void Controller::update() {
     //         tail_pos);
     // mTorso->createShapeNodeWith<VisualAspect>(mArrow);
     // }
-    // if (mWorld->getSimFrames()==205)
-    //     {
-    //         // std::cout << "mTorso->getNumVisualizationShapes() = " << mTorso->getNumVisualizationShapes() << std::endl;
-    //         visualShapeNodes[1]->remove();
-    //         // mTorso->removeVisualizationShape(mArrow);
-    //     }
+
+      // if (mWorld->getSimFrames()==205)
+      //   {
+      //       // std::cout << "mTorso->getNumVisualizationShapes() = " << mTorso->getNumVisualizationShapes() << std::endl;
+      //       visualShapeNodes[1]->remove();
+      //       // mTorso->removeVisualizationShape(mArrow);
+      //   }
 
 
     //if (mWorld->getSimFrames()==500) system("gnuplot ../plotters/plot");
@@ -499,32 +515,38 @@ void Controller::update() {
     previous_desired = desired;
     desired = solver->solve(desired, desired_cam, walkState, 0.0, 0.0, 0.0, virt_torq, 0.0);
 
-        error_x = (mBase->getCOM()(0) - previous_desired.comPos(0));
-        error_y = (mBase->getCOM()(1) - previous_desired.comPos(1));
+        error_x = (mBase->getCOM()(0) - desired.comPos(0));
+        error_y = (mBase->getCOM()(1) - desired.comPos(1));
 
-        error_xd = (mBase->getCOMLinearVelocity()(0) - previous_desired.comVel(0));
-        error_yd = (mBase->getCOMLinearVelocity()(1) - previous_desired.comVel(1));
 
         error_xa = (mBase->getCOMLinearAcceleration()(0) - previous_desired.comAcc(0));
         error_ya = (mBase->getCOMLinearAcceleration()(1) - previous_desired.comAcc(1));
 
 
+        xdescom_foot = desired.getRelComPose(walkState.supportFoot)(3);
+        ydescom_foot = desired.getRelComPose(walkState.supportFoot)(4);
+
+        xactcom_foot = current.getRelComPose(walkState.supportFoot)(3);
+        yactcom_foot = current.getRelComPose(walkState.supportFoot)(4);
 
         errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - desired.getRelComPose(walkState.supportFoot)(3));
-        std::cout << "errorfoot_x and error_foot_y are current - desired not current - previous_desired" << std::endl;
+        std::cout << "errorfoot_x and errorfoot_y are current - desired not current - previous_desired" << std::endl;
         errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - desired.getRelComPose(walkState.supportFoot)(4));
 
+
+        errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - desired.getRelComPose(walkState.supportFoot)(0));
+        std::cout << "errorfoot_thetax and errorfoot_theta are current - desired not current - previous_desired" << std::endl;
+        errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - desired.getRelComPose(walkState.supportFoot)(1));
+
+        error_xd = (mBase->getCOMLinearVelocity()(0) - desired.comVel(0));
+        error_yd = (mBase->getCOMLinearVelocity()(1) - desired.comVel(1));
 
         // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
         // errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
 
-        errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
-        errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
+        // errorfoot_thetax = (current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
+        // errorfoot_thetay = (current.getRelComPose(walkState.supportFoot)(1) - previous_desired.getRelComPose(walkState.supportFoot)(1));
 
-
-
-        // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(0) - desired.getRelComPose(walkState.supportFoot)(0));
-        // errorfoot_y = (current.getRelComPose(walkState.supportFoot)(1) - desired.getRelComPose(walkState.supportFoot)(1));
 
         // error_x = (mBase->getCOM()(0) - desired.comPos(0));
         // error_y = (mBase->getCOM()(1) - desired.comPos(1));
@@ -689,7 +711,7 @@ void Controller::update() {
         // desired_cam.comPos(0) += desiredWithNoise.comPos(0) - desired.comPos(0);
         // desired_cam.comPos(1) += desiredWithNoise.comPos(1) - desired.comPos(1);
 
-        // desired_cam.comVel(0) += desiredWithNoise.comVel(0) - desired.comVel(0);
+      // desired_cam.comVel(0) += desiredWithNoise.comVel(0) - desired.comVel(0);
         // desired_cam.comVel(1) += desiredWithNoise.comVel(1) - desired.comVel(1);
 
         // desired_cam.zmpPos(0) += desiredWithNoise.zmpPos(0) - desired.zmpPos(0);
@@ -707,17 +729,22 @@ void Controller::update() {
         // desired_cam.comPos(0) = 0.01*errorfoot_x + errorfoot_thetax;
         // desired_cam.comPos(1) = 0.01*errorfoot_y + errorfoot_thetay;
         
-        if(walkState.footstepCounter > 1){
-        desired_cam.comPos(0) = 0.0*errorfoot_x;
-        desired_cam.comPos(1) = 0.0*errorfoot_y;
+        if(walkState.footstepCounter > 1){  //-1
+        // desired_cam.comPos(0) = 2.0*errorfoot_x;
+        // desired_cam.comPos(1) = 2.0*errorfoot_y;
 
-// desired_cam.comPos(0) = 0.0;
-// desired_cam.comPos(1) = 0.0;
+        desired_cam.comPos(0) = 1.0*errorfoot_x - 0.0*errorfoot_thetay;
+        desired_cam.comPos(1) = 1.0*errorfoot_y + 0.0*errorfoot_thetax;
 
-        // desired_cam.zmpPos(0) = 0.0;
-        // desired_cam.zmpPos(1) = 0.0;
-        // desired_cam.comVel(0) = 0.0;
-        // desired_cam.comVel(1) = 0.0;
+        desired_cam.comVel(0) = 1.0*error_xd;
+        desired_cam.comVel(1) = 1.0*error_yd;
+
+
+desired_cam.comPos(0) = 0.0;
+desired_cam.comPos(1) = 0.0;
+
+desired_cam.comVel(0) = 0.0;
+desired_cam.comVel(1) = 0.0;
 
 }
         // desired_cam.comPos(0) = 1.0*(current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
@@ -738,13 +765,13 @@ void Controller::update() {
 
         // current_cam.comPos = desired_cam.comPos;
         desiredTorques = computeTorques();
-        // desiredTorques = Eigen::VectorXd::Zero(3);
+    // if (mWorld->getSimFrames()==180)
+    //    Eigen::Vector3d(0.0, 10.0, 0.0);
+
         angularAcceleration = MOI.inverse()*desiredTorques;
         mAngularPosition += mAngularVelocity*mpcTimeStep + angularAcceleration*0.5*pow(mpcTimeStep,2);
         mAngularVelocity += angularAcceleration*mpcTimeStep;
 
-
-        // mAngularVelocity(2) = 0.0;
         // mAngularPosition(2) = 0.0;
         // if(walkState.footstepCounter > 0){
         // mAngularVelocity = walkState.supportFoot == 0 ?  Eigen::Vector3d(0.0, 0.2, 0.0) : Eigen::Vector3d(0.0, -0.2, 0.0);
@@ -795,10 +822,28 @@ void Controller::update() {
         // std::cout << "before getJointVelocitiesDoublePendulum" << std::endl;
 // std::cout << "REMOVE THE DESIRED ORIENTATION PART PLEASE" << std::endl;
 // desired.torsoOrient << 0.0, -M_PI/180, 0.0;
+         // Eigen::Vector3d angularAcc_dist = Eigen::Vector3d(0.0, 10.0, 0.0);
+         // Eigen::Vector3d angularVel_dist = angularAcc_dist*mpcTimeStep;
+         // Eigen::Vector3d angularPos_dist = angularAcc_dist*0.5*pow(mpcTimeStep,2);
+         // desired.torsoOrient += angularPos_dist;
+        // qDot =  getJointVelocitiesDoublePendulum(desired.getRelComPose(walkState.supportFoot), current.getRelComPose(walkState.supportFoot),
+        //  desired.getRelSwingFootPose(walkState.supportFoot), current.getRelSwingFootPose(walkState.supportFoot), desired.comVel, mAngularVelocity+angularVel_dist, desired.torsoOrient, current.torsoOrient);
+     // }
+     // else
+     //   {
 
-        qDot =  getJointVelocitiesDoublePendulum(desired.getRelComPose(walkState.supportFoot), current.getRelComPose(walkState.supportFoot),
+    qDot =  getJointVelocitiesDoublePendulum(desired.getRelComPose(walkState.supportFoot), current.getRelComPose(walkState.supportFoot),
          desired.getRelSwingFootPose(walkState.supportFoot), current.getRelSwingFootPose(walkState.supportFoot), desired.comVel, mAngularVelocity, desired.torsoOrient, current.torsoOrient);
+// }
 
+// Eigen::Vector6d desiredCOM_world, currentCOM_world, desiredSWF_world, currentSWF_world;
+// desiredCOM_world << desired.getComPose();
+// currentCOM_world << current.getComPose();
+
+// desiredSWF_world << desired.getSwingFootPose(walkState.supportFoot);
+// currentSWF_world << current.getSwingFootPose(walkState.supportFoot);
+
+//         qDot =  getJointVelocitiesStacked_worldframe(desiredCOM_world, currentCOM_world, desiredSWF_world, currentSWF_world, desired.comVel, mAngularVelocity);
 
     // Set the velocity of the floating base to zero
     for (int i = 0; i < 6; ++i){
@@ -811,6 +856,36 @@ void Controller::update() {
         mRobot->setCommand(i+6,qDot(i)); //velocity joint control
     // std::cout << "qdot of "<< mRobot->getDof(i+6)->getName() << " = " << qDot(i) << std::endl;
     }
+        //     if(mWorld->getSimFrames()==10){
+        //     mRobot->setCommand(10,10000);
+        //     std::cout << "PUSH" << std::endl;
+        //     std::cout << "mRobot->getDof(CHEST_P)->getIndexInSkeleton() = " << mRobot->getDof("CHEST_P")->getIndexInSkeleton() << std::endl;
+        //     std::cout << "mRobot->getCommand(mRobot->getDof(CHEST_P)->getIndexInSkeleton()) = " << mRobot->getCommand(mRobot->getDof("CHEST_P")->getIndexInSkeleton()) << std::endl;
+        // }
+// if(mWorld->getSimFrames()>=180 && mWorld->getSimFrames() <=190)
+// {
+//     std::cout << "mRobot->getCommand(mRobot->getDof(CHEST_P)->getIndexInSkeleton()) = " << mRobot->getCommand(mRobot->getDof("CHEST_P")->getIndexInSkeleton()) << std::endl;
+//     std::cout << "mRobot->getCommand(6) = " << mRobot->getCommand(6) << std::endl;
+//  mRobot->setCommand(6, mRobot->getCommand(6)+5.0);
+//      std::cout << "mRobot->getCommand(6) = " << mRobot->getCommand(6) << std::endl;
+// }
+
+
+    AngMomentum = Eigen::Vector3d::Zero(3);
+      for (int i = 1; i < mRobot->getNumBodyNodes(); i++) { //i = 1 to ignore the first (unwanted) joint
+        if(mRobot->getBodyNode(i)->getMass() == 1) continue;
+        // AngMomentum += (mRobot->getBodyNode(i)->getCOM() - mBase->getCOM()).cross(
+        // mRobot->getBodyNode(i)->getMass()*mRobot->getBodyNode(i)->getCOMLinearVelocity())+mRobot->getBodyNode(i)->getAngularMomentum();
+
+        AngMomentum += mRobot->getBodyNode(i)->getAngularMomentum();
+      
+      // std::cout << "mRobot->getBodyNode(i)->getAngularMomentum()"<< mRobot->getBodyNode(i)->getAngularMomentum() << '\n';
+      // std::cout << "my ang mom " << i << " is ="<<  mRobot->getBodyNode(i)->getAngularMomentum() << '\n';
+      // std::cout << "Spatial inertia of " << i << " is ="<<  mRobot->getBodyNode(i)->getSpatialInertia().block(0,0,3,3) << std::endl;
+      // std::cout << "moment inertia  " << i << " is ="<<  mRobot->getBodyNode(i)->getInertia().getMoment() << std::endl;
+      // std::cout << "my ang mom " << i << " is ="<<  mRobot->getBodyNode(i)->getInertia()*mRobot->getBodyNode(i)->getAngularVelocity() << '\n';
+      }
+
 
     // Store the results in files (for plotting)
     //storeData();
@@ -872,13 +947,16 @@ Eigen::Vector3d Controller::computeTorques()
     mDesiredTorque(0) = -desired_cam.zmpPos(1)*mTorsoMass*9.81;
     mDesiredTorque(1) = desired_cam.zmpPos(0)*mTorsoMass*9.81;
 
-    mDesiredTorque(2) = ((totalCOMx-previous_desired.zmpPos(0))*mDesiredTorque(0) 
-        + (totalCOMy-previous_desired.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
+    // mDesiredTorque(2) = ((totalCOMx-previous_desired.zmpPos(0))*mDesiredTorque(0) 
+    //     + (totalCOMy-previous_desired.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
 
-    mDesiredTorque(2) = ((totalCOMx-current.zmpPos(0))* mDesiredTorque(0) 
-        + (totalCOMy-current.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
+    // mDesiredTorque(2) = ((totalCOMx-desired.zmpPos(0))*mDesiredTorque(0) 
+    //     + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1))/-comTargetHeight;
 
-    // mDesiredTorque(2) = 0.0;
+    // mDesiredTorque(2) = ((totalCOMx-current.zmpPos(0))* mDesiredTorque(0) 
+    //     + (totalCOMy-current.zmpPos(1))*mDesiredTorque(1))/-current.comPos(2);
+
+    mDesiredTorque(2) = 0.0;
 
     // std::cout <<  ((totalCOMx-desired.zmpPos(0))* mDesiredTorque(0) 
     //     + (totalCOMy-desired.zmpPos(1))*mDesiredTorque(1))/comTargetHeight << std::endl;
@@ -912,11 +990,19 @@ Eigen::Vector3d Controller::computeAngularMomentum(){ //FIXME: Does this get the
 Eigen::Matrix3d Controller::getMomentOfInertia(){
     Eigen::Matrix3d MOI = Eigen::Matrix3d::Zero();
 
-     mTorso->getInertia().getMoment();
-    // std::cout << "torque inertia = " << mTorso->getInertia().getMoment(); << std::endl;
+     // mTorso->getInertia().getMoment();
         MOI << 0.344345670122806, -5.676994253777424e-04, 0.045048560212699, 
         -5.676994253777424e-04, 0.338324801980916, 0.003172978374495,
          0.045048560212699, 0.003172978374495, 0.048160214086886;
+
+// std::cout << mRobot->getBodyNode(4)->getName() << std::endl;
+    // std::cout << "torque moment inertia = " << mRobot->getBodyNode(4)->getInertia().getMoment() << std::endl;
+    // std::cout << "motrso moment inertia = " << mTorso->getInertia().getMoment() << std::endl;
+    // std::cout << "torque spatial moment of inertia = " << mRobot->getBodyNode(4)->getSpatialInertia().block(0,0,3,3) << std::endl;
+
+
+if(0)  MOI = mRobot->getBodyNode(4)->getSpatialInertia().block(0,0,3,3);
+
 
     //  MOI << 0.344345670122806, 0.0, 0.0, 
     // 0.0, 0.338324801980916, 0.0,
@@ -1022,6 +1108,11 @@ Eigen::MatrixXd Controller::getTorsoAndSwfJacobian() { //FIXME this is still exp
     // for (unsigned int i=0; i<44; i++){ 
     // if (i!=5 || i!=6)  Jacobian_supportToBase.col(i).setZero();
     // }
+
+    // std::cout << "mRobot->getAngularJacobian(mTorso,mSupportFoot)" << mRobot->getAngularJacobian(mTorso,mSupportFoot).rows() << mRobot->getAngularJacobian(mTorso,mSupportFoot).cols() << std::endl;
+
+    // std::cout << "Replaced Jacobian with getAngularJacobian in IK of torso" << std::endl;
+    // Jacobian_supportToBase.block(0,0,3,56) = mRobot->getAngularJacobian(mTorso,mSupportFoot);
 
     Eigen::MatrixXd Jacobian_SupportToSwing =  mRobot->getJacobian(mSwingFoot,mSupportFoot) - mRobot->getJacobian(mSupportFoot,mSupportFoot);
 
@@ -1148,6 +1239,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
         Eigen::VectorXd ComVref = Eigen::VectorXd::Zero(12);
         // desidercam_com_vel = Eigen::Vector3d::Zero(3);
      
+        // ComVref<< 0.0, 0.0, 0.0, desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
         ComVref<<desidercam_com_vel(0), desidercam_com_vel(1), desidercam_com_vel(2), desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
 
 
@@ -1240,7 +1332,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
 
         // double ikGain = 10;
 
-    _taskGain(0,0) = 0.1;//0.1
+     _taskGain(0,0) = 0.1;//0.1
     _taskGain(1,1) = 0.8;//0.8;
     _taskGain(2,2) = 0.1;//0.1;
 
@@ -1258,7 +1350,6 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
     _taskGain(9,9) = 5; //5
     _taskGain(10,10) = 5; //5
     _taskGain(11,11) = 5; //5
-    
         double ikGain = 10;
         ikGain = 9;
 // std::cout << "ComVref = " << ComVref << std::endl;
@@ -1349,7 +1440,7 @@ Eigen::VectorXd Controller::getJointVelocitiesStacked_worldframe(Eigen::VectorXd
         Eigen::VectorXd ComVref = Eigen::VectorXd::Zero(12);
 
         ComVref<<desidercam_com_vel(0), desidercam_com_vel(1), desidercam_com_vel(2), desider_com_vel(0), desider_com_vel(1), desider_com_vel(2),0.0,0.0,0.0,0.0,0.0,0.0;
-
+std::cout << "ERROR 1 " << std::endl;
 
     Eigen::VectorXd desired_pos(12);
     desired_pos << desider_pos_base, desider_pos_SwingFoot;
@@ -1365,7 +1456,7 @@ Eigen::VectorXd Controller::getJointVelocitiesStacked_worldframe(Eigen::VectorXd
 
     Eigen::MatrixXd _taskGain = Eigen::MatrixXd::Identity(12,12);
 
-
+std::cout << "ERROR 1 " << std::endl;
 
 
         //// VERY GOOD
@@ -1390,12 +1481,14 @@ Eigen::VectorXd Controller::getJointVelocitiesStacked_worldframe(Eigen::VectorXd
     _taskGain(11,11) = 5;
 
         double ikGain = 10;
+std::cout << "ERROR 1 " << std::endl;
 
     Eigen::VectorXd qDot(50);
     qDot = PseudoJacobian_tot*(ComVref+ikGain*_taskGain*(desired_pos - actual_pos));
 
     return qDot;
 }
+
 Eigen::MatrixXd Controller::getTorsoAndSwfJacobian_worldframe() { //FIXME this is still expressed in relative frame
     if (walkState.supportFoot == true) {
         mSupportFoot = mRobot->getBodyNode("r_sole");
@@ -1406,26 +1499,22 @@ Eigen::MatrixXd Controller::getTorsoAndSwfJacobian_worldframe() { //FIXME this i
     }
 
     Eigen::MatrixXd Jacobian_worldToTorso;
+// mRobot->getJacobian(mTorso,mSupportFoot) 
+        std::cout << mRobot->getJacobian(mTorso) << std::endl;
+
+    std::cout << mRobot->getJacobian(mSwingFoot) << std::endl;
+
+    // std::cout <<"swing = " << mSwingFoot->getWorldJacobian().rows() << " ," << mSwingFoot->getWorldJacobian().cols() << std::endl;
+
+    // std::cout << mTorso->getWorldJacobian().rows() << " ," << mTorso->getWorldJacobian().cols() << std::endl;
 
 
-    Jacobian_worldToTorso =  mTorso->getJacobian(); //,mWorld) - mRobot->getJacobian(mWorld,mWorld); //(mBase,mSupportFoot)
+std::cout << "ERROR 2" << std::endl;
+    Jacobian_worldToTorso =  mRobot->getJacobian(mTorso); //,mWorld) - mRobot->getJacobian(mWorld,mWorld); //(mBase,mSupportFoot)
  
 
-    // for (unsigned int i=0; i<44; i++){ 
-    // if (i!=5 || i!=6)  Jacobian_worldToTorso.col(i).setZero();
-    // }
-    // std::cout << mTorso->getJacobian() << std::endl;
-
-    std::cout << mSwingFoot->getJacobian() << std::endl;
-
-    std::cout << mSwingFoot->getJacobian().rows() << " ," << mSwingFoot->getJacobian().cols() << std::endl;
-
-    std::cout << mTorso->getJacobian().rows() << " ," << mTorso->getJacobian().cols() << std::endl;
-
-    Eigen::MatrixXd Jacobian_worldToSwing =  mSwingFoot->getJacobian()+mTorso->getJacobian(); //,mWorld) - mRobot->getJacobian(mWorld,mWorld);
-
-
-    std::cout << Jacobian_worldToSwing << std::endl;
+    Eigen::MatrixXd Jacobian_worldToSwing =  mRobot->getJacobian(mSwingFoot); //,mWorld) - mRobot->getJacobian(mWorld,mWorld);
+std::cout << "ERROR 2" << std::endl;
 
     Eigen::MatrixXd Jacobian_tot_(12, 56);
 
@@ -1436,10 +1525,8 @@ Eigen::MatrixXd Controller::getTorsoAndSwfJacobian_worldframe() { //FIXME this i
     // Remove the floating base columns
     Jacobian_tot = Jacobian_tot_.block<12,50>(0, 6);
 
-
     return Jacobian_tot;
 }
-
 
 void Controller::keyboard(unsigned char /*_key*/, int /*_x*/, int /*_y*/) {}
 
@@ -1455,8 +1542,6 @@ void Controller::setInitialConfiguration() {
     q[4] = 0.00;
     q[5] = 0.753;
 
-    // q[6] = 25*M_PI/180;
-
     // Right Leg
     q[44] = 0.0;            // hip yaw
     q[45] = 3*M_PI/180;    // hip roll
@@ -1471,10 +1556,10 @@ void Controller::setInitialConfiguration() {
     q[52] = -25*M_PI/180;   // hip pitch
     q[53] = 50*M_PI/180;   // knee pitch
     q[54] = -30*M_PI/180; // ankle pitch
-    q[55] = 4*M_PI/180;   // ankle roll       
+    q[55] = 4*M_PI/180;   // ankle roll    
+
 
     mRobot->setPositions(q);
-
     // Additional arm position setting
     mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (4)*M_PI/180 );
     mRobot->setPosition(mRobot->getDof("R_SHOULDER_R")->getIndexInSkeleton(), -8*M_PI/180  );
@@ -1489,6 +1574,53 @@ void Controller::setInitialConfiguration() {
 
     mRobot->setPosition(mRobot->getDof("L_ELBOW_P")->getIndexInSkeleton(), -25*M_PI/180 ); 
     mRobot->setPosition(mRobot->getDof("L_ELBOW_P")->getIndexInSkeleton(), -25*M_PI/180 ); 
+
+
+// //SOGOOD!
+//           // Floating Base
+//     q[0] = 0.0;
+//     q[1] = 100*M_PI/180;
+//     q[2] = 0.0;
+//     q[3] = 0.00;
+//     q[4] = 0.00;
+//     q[5] = 0.5;
+
+//        // Right Leg
+//     q[44] = 0.0;            // hip yaw
+//     q[45] = 3*M_PI/180;    // hip roll
+//     q[46] = -100*M_PI/180;   // hip pitch
+//     q[47] = 100*M_PI/180;   // knee pitch
+//     q[48] = -30*M_PI/180; // ankle pitch
+//     q[49] = -4*M_PI/180;   // ankle roll
+    
+//     // Left Leg
+//     q[50] = 0.0;            // hip yaw
+//     q[51] = -3*M_PI/180;    // hip roll
+//     q[52] = -100*M_PI/180;   // hip pitch
+//     q[53] = 100*M_PI/180;   // knee pitch
+//     q[54] = -30*M_PI/180; // ankle pitch
+//     q[55] = 4*M_PI/180;   // ankle roll  
+
+
+//     mRobot->setPositions(q);
+//     // Additional arm position setting
+//     mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), - M_PI/2 );
+//     mRobot->setPosition(mRobot->getDof("R_SHOULDER_R")->getIndexInSkeleton(), 0  );
+//     mRobot->setPosition(mRobot->getDof("R_SHOULDER_Y")->getIndexInSkeleton(), 0 );
+
+//     mRobot->setPosition(mRobot->getDof("R_ELBOW_P")->getIndexInSkeleton(), -100*M_PI/180 );
+//     mRobot->setPosition(mRobot->getDof("R_WRIST_R")->getIndexInSkeleton(), -20*M_PI/180 );
+//     mRobot->setPosition(mRobot->getDof("R_WRIST_Y")->getIndexInSkeleton(), 100*M_PI/180 );
+
+//     mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), - M_PI/2 );
+//     mRobot->setPosition(mRobot->getDof("L_SHOULDER_R")->getIndexInSkeleton(), 0  );
+//     mRobot->setPosition(mRobot->getDof("L_SHOULDER_Y")->getIndexInSkeleton(), 0 );
+
+//     mRobot->setPosition(mRobot->getDof("L_ELBOW_P")->getIndexInSkeleton(), -100*M_PI/180 ); 
+//     mRobot->setPosition(mRobot->getDof("L_WRIST_R")->getIndexInSkeleton(), -20*M_PI/180 );
+//     mRobot->setPosition(mRobot->getDof("L_WRIST_Y")->getIndexInSkeleton(), -80*M_PI/180 );
+
+
 }
 
 
@@ -1498,9 +1630,12 @@ void Controller::ArmSwing() {
 
 // TO DO: add variable period to the swing trajecotry
     double TimePeriod = (singleSupportDuration + doubleSupportDuration) * 2 * 100;
+    if(sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())) < 0)
+    mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (40*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
+else mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(),0);
 // if(    walkState.footstepCounter > 0){
-mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (30*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
-mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-30*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180  );
+// mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
+// mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180  );
 // }
 }
 
@@ -1611,6 +1746,20 @@ void Controller::storeData() {
         myfile << desired.comPos(1) <<endl; 
         myfile.close();
 
+
+        myfile.open ("../txts/xdescom_foot.txt",ios::app);
+        myfile << xdescom_foot <<endl; 
+        myfile.close();
+        myfile.open ("../txts/ydescom_foot.txt",ios::app);
+        myfile << ydescom_foot <<endl;
+        myfile.close();
+        myfile.open ("../txts/xactcom_foot.txt",ios::app);
+        myfile << xactcom_foot <<endl;
+        myfile.close();
+        myfile.open ("../txts/yactcom_foot.txt",ios::app);
+        myfile << yactcom_foot <<endl;
+        myfile.close();
+
         myfile.open ("../txts/xwithnoise.txt",ios::app);
         myfile << desiredWithNoise.comPos(0) <<endl; 
         myfile.close();
@@ -1675,6 +1824,15 @@ void Controller::storeData() {
         myfile << error_y <<endl; 
         myfile.close();
 
+        
+        myfile.open ("../txts/error_xd.txt",ios::app);
+        myfile << error_xd <<endl; 
+        myfile.close();
+        myfile.open ("../txts/error_yd.txt",ios::app);
+        myfile << error_yd <<endl;
+        myfile.close();
+
+
         myfile.open ("../txts/errorfoot_x.txt",ios::app);
         myfile << errorfoot_x <<endl; 
         myfile.close();
@@ -1731,6 +1889,16 @@ void Controller::storeData() {
         myfile << current.getRelComPose(walkState.supportFoot)(2) <<endl; 
         myfile.close();
 
+        
+        myfile.open ("../txts/AngMomentumX.txt",ios::app);
+        myfile << AngMomentum(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/AngMomentumY.txt",ios::app);
+        myfile << AngMomentum(1) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/AngMomentumZ.txt",ios::app);
+        myfile << AngMomentum(2) <<endl; 
+        myfile.close();
 
         if(isDoublePendulum)
         {
@@ -1773,12 +1941,12 @@ void Controller::storeData() {
         myfile << mAngularVelocity(2) <<endl; 
         myfile.close();
 
-        // myfile.open ("../txts/virt_torqx.txt",ios::app);
-        // myfile << virt_torq(0) <<endl; 
-        // myfile.close();
-        // myfile.open ("../txts/virt_torqy.txt",ios::app);
-        // myfile << virt_torq(1) <<endl; 
-        // myfile.close();
+        myfile.open ("../txts/virt_torqx.txt",ios::app);
+        myfile << virt_torq(0) <<endl; 
+        myfile.close();
+        myfile.open ("../txts/virt_torqy.txt",ios::app);
+        myfile << virt_torq(1) <<endl; 
+        myfile.close();
 
         myfile.open ("../txts/actualAngVel_x.txt",ios::app);
         myfile << mTorso->getAngularVelocity()(0) <<endl; 

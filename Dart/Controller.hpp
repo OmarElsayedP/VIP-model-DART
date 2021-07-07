@@ -79,6 +79,9 @@ private:
   Eigen::Vector3d mAngularVelocity;
   Eigen::Vector3d mAngularPosition;
 
+  // Eigen::Vector3d AngMomentum;
+  // Eigen::Vector3d AngMomentum;
+
   MPCSolver* solver;
   MPCSolvercam* solver_cam;
 
@@ -94,13 +97,14 @@ private:
   State desiredWithNoise;
   State desired_cam;
   State current_cam;
+  
 
   WalkState walkState;
 
   FootstepPlan* footstepPlan;
   //std::vector<Eigen::VectorXd> footstepPlan;
   double tail_counter = -100;
-  Eigen::Vector3d memopush;
+  Eigen::Vector3d AngMomentum;
   double px, py;
   double fx = 0.0;
   double fy = 0.0;
@@ -113,6 +117,11 @@ private:
 
   double xzcom_tot;
   double yzcom_tot;
+
+  double xdescom_foot;
+ double ydescom_foot;
+ double xactcom_foot;
+ double yactcom_foot;
 
   double xzd;
   double yzd;
