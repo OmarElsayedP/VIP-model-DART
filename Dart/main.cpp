@@ -76,25 +76,25 @@ int main(int argc, char* argv[])
 // int sim = 2;
 
 // viewer.getCameraManipulator()->setHomePosition(
-        // ::osg::Vec3d( 0.8,  -8.2*3.28*0.2, 3.3*0.155)*1.0,
-        // ::osg::Vec3d( -0.10,  2.5, 0.35),
-        // ::osg::Vec3d( 0.00,  0.2, 2.1));
-
-  // viewer.getCameraManipulator()->setHomePosition(
-  //       ::osg::Vec3d( 5.14,  3.28, 6.28)*0.7,
-  //       ::osg::Vec3d( 0.50,  -1.00, 0.00),
-  //       ::osg::Vec3d( 0.00,  0.00, 0.1));
-
-
-  // viewer.getCameraManipulator()->setHomePosition(
-  //       ::osg::Vec3d( 5.14,  3.28, 6.28)*0.7,
-  //       ::osg::Vec3d( 0.50,  -1.00, 0.00),
-  //       ::osg::Vec3d( 0.00,  0.00, 0.1));
+//         ::osg::Vec3d( 0.8,  -8.2*3.28*0.2, 3.3*0.155)*1.0,
+//         ::osg::Vec3d( -0.10,  2.5, 0.35),
+//         ::osg::Vec3d( 0.00,  0.2, 2.1));
 
   viewer.getCameraManipulator()->setHomePosition(
-        ::osg::Vec3d( 8.0,  0.0, 3.0),  //Pos of camera
-        ::osg::Vec3d( 0.0,  0.0, 0.0),
-        ::osg::Vec3d( 0.0,  0.0, M_PI)); //ANgle most probably
+        ::osg::Vec3d( 5.14,  3.28, 6.28)*0.7,
+        ::osg::Vec3d( 0.50,  -1.00, 0.00),
+        ::osg::Vec3d( 0.00,  0.00, 0.1));
+
+
+  // viewer.getCameraManipulator()->setHomePosition(
+  //       ::osg::Vec3d( 5.14,  3.28, 6.28)*0.7,
+  //       ::osg::Vec3d( 0.50,  -1.00, 0.00),
+  //       ::osg::Vec3d( 0.00,  0.00, 0.1));
+
+  // viewer.getCameraManipulator()->setHomePosition(
+  //       ::osg::Vec3d( 8.0,  0.0, 3.0),  //Pos of camera
+  //       ::osg::Vec3d( 0.0,  0.0, 0.0),
+  //       ::osg::Vec3d( 0.0,  0.0, M_PI)); //ANgle most probably
 
 
     // std::cout << "main before new world" << std::endl;

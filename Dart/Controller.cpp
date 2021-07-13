@@ -68,7 +68,7 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
     footstepPlan->plan(vrefSequence, leftFootPose, rightFootPose, firstSupportFootIsLeft);
 
     Eigen::Vector3d maxTheta = Eigen::Vector3d::Zero(3);
-    maxTheta << M_PI, M_PI, M_PI;
+    maxTheta << M_PI/2, M_PI/2, 0.0;
     // maxTheta << M_PI/18.0, M_PI/18.0, 0.0;
 // std::cout << "M_PI =" << M_PI << std::endl;
     // maxTheta << 0.2, 0.2, 0.2;
@@ -270,6 +270,11 @@ Controller::Controller(dart::dynamics::SkeletonPtr _robot, dart::simulation::Wor
         myfile.open ("../txts/yzd.txt",ios::trunc);
         myfile.close();
 
+        myfile.open ("../txts/error_xa.txt",ios::trunc); 
+        myfile.close();
+        myfile.open ("../txts/error_ya.txt",ios::trunc);
+        myfile.close();
+
         myfile.open ("../txts/error_x.txt",ios::trunc);
         myfile.close();
         myfile.open ("../txts/error_y.txt",ios::trunc);
@@ -386,14 +391,14 @@ void Controller::update() {
 
     auto visualShapeNodes = mTorso->getShapeNodesWith<VisualAspect>();
 
-    // // if (mWorld->getSimFrames()>=230 && mWorld->getSimFrames() <= 234)
-    // if (mWorld->getSimFrames()>=180 && mWorld->getSimFrames() <= 200)
+    // if (mWorld->getSimFrames()>=230 && mWorld->getSimFrames() <= 234)
+    // if (mWorld->getSimFrames()>=180 && mWorld->getSimFrames() <= 280)
     //  {   
-    //             std::shared_ptr<ArrowShape> mArrow;
+    //             std::shared_ptr<ArrowShape> mArrow; 
 
     //             // mTorso->addExtForce(Eigen::Vector3d(0,200,0));
-    //             mTorso->addExtForce(Eigen::Vector3d(0,200,0));
-    //             // mTorso->addExtForce(Eigen::Vector3d(300,0,0));
+    //             // mTorso->addExtForce(Eigen::Vector3d(0,300,0));
+    //             mTorso->addExtForce(Eigen::Vector3d(100,0,0));
     // ArrowShape::Properties arrow_properties;
     // arrow_properties.mRadius = 0.05;
     // Eigen::Vector3d tail_pos = Eigen::Vector3d(0.0, -0.2, comTargetHeight/2) ;
@@ -519,10 +524,6 @@ void Controller::update() {
         error_y = (mBase->getCOM()(1) - desired.comPos(1));
 
 
-        error_xa = (mBase->getCOMLinearAcceleration()(0) - previous_desired.comAcc(0));
-        error_ya = (mBase->getCOMLinearAcceleration()(1) - previous_desired.comAcc(1));
-
-
         xdescom_foot = desired.getRelComPose(walkState.supportFoot)(3);
         ydescom_foot = desired.getRelComPose(walkState.supportFoot)(4);
 
@@ -540,6 +541,10 @@ void Controller::update() {
 
         error_xd = (mBase->getCOMLinearVelocity()(0) - desired.comVel(0));
         error_yd = (mBase->getCOMLinearVelocity()(1) - desired.comVel(1));
+
+        error_xa = (mBase->getCOMLinearAcceleration()(0) - desired.comAcc(0));
+        error_ya = (mBase->getCOMLinearAcceleration()(1) - desired.comAcc(1));
+
 
         // errorfoot_x = (current.getRelComPose(walkState.supportFoot)(3) - previous_desired.getRelComPose(walkState.supportFoot)(3));
         // errorfoot_y = (current.getRelComPose(walkState.supportFoot)(4) - previous_desired.getRelComPose(walkState.supportFoot)(4));
@@ -739,12 +744,18 @@ void Controller::update() {
         desired_cam.comVel(0) = 1.0*error_xd;
         desired_cam.comVel(1) = 1.0*error_yd;
 
+        // desired_cam.comAcc(0) = 1.0*error_xa;
+        // desired_cam.comAcc(1) = 1.0*error_ya;
+
 
 desired_cam.comPos(0) = 0.0;
 desired_cam.comPos(1) = 0.0;
 
 desired_cam.comVel(0) = 0.0;
 desired_cam.comVel(1) = 0.0;
+
+        // desired_cam.comAcc(0) = 0.0;
+        // desired_cam.comAcc(1) = 0.0;
 
 }
         // desired_cam.comPos(0) = 1.0*(current.getRelComPose(walkState.supportFoot)(0) - previous_desired.getRelComPose(walkState.supportFoot)(0));
@@ -891,7 +902,7 @@ desired_cam.comVel(1) = 0.0;
     //storeData();
 
     // Arm swing
-    // ArmSwing();
+    ArmSwing();
     // if(!isDoublePendulum || !VIPsturn){
 // }
     // std::cout << angularAcceleration << std::endl;
@@ -1339,7 +1350,7 @@ Eigen::VectorXd Controller::getJointVelocitiesDoublePendulum(Eigen::VectorXd des
     // CoM Position
     _taskGain(3,3) = 5;  //5
     _taskGain(4,4) = 5; //5
-    _taskGain(5,5) = 3; //0.5 IT WAS ONE BEFORE !!!!
+    _taskGain(5,5) = 0.5; //0.5 IT WAS ONE BEFORE !!!!
 
     // Swing Foot Orientation
     _taskGain(6,6) = 8; //2
@@ -1536,7 +1547,8 @@ void Controller::setInitialConfiguration() {
 
     // Floating Base
     q[0] = 0.0;
-    q[1] = 4*M_PI/180;
+    // q[1] = 4*M_PI/180;
+    q[1] = 0.0;
     q[2] = 0.0;
     q[3] = 0.00;
     q[4] = 0.00;
@@ -1630,13 +1642,18 @@ void Controller::ArmSwing() {
 
 // TO DO: add variable period to the swing trajecotry
     double TimePeriod = (singleSupportDuration + doubleSupportDuration) * 2 * 100;
+// if(walkState.footstepCounter > 1){
     if(sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())) < 0)
-    mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (40*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
-else mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(),0);
-// if(    walkState.footstepCounter > 0){
-// mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
-// mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-20*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180  );
+    mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (60*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
+else mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(),(0*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
 // }
+
+
+// if(    walkState.footstepCounter > 1){
+// mRobot->setPosition(mRobot->getDof("R_SHOULDER_P")->getIndexInSkeleton(), (40*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180 );
+// mRobot->setPosition(mRobot->getDof("L_SHOULDER_P")->getIndexInSkeleton(), (-40*sin(2*M_PI*(1/TimePeriod)*(mWorld->getSimFrames())))*M_PI/180  );
+// }
+
 }
 
 
@@ -1830,6 +1847,14 @@ void Controller::storeData() {
         myfile.close();
         myfile.open ("../txts/error_yd.txt",ios::app);
         myfile << error_yd <<endl;
+        myfile.close();
+
+
+        myfile.open ("../txts/error_xa.txt",ios::app);
+        myfile << error_xa <<endl; 
+        myfile.close();
+        myfile.open ("../txts/error_ya.txt",ios::app);
+        myfile << error_ya <<endl;
         myfile.close();
 
 

@@ -394,7 +394,7 @@ State MPCSolvercam::solve(State no_current, State current_cam, WalkState walkSta
     bConstraintMaxcam << beq_cam, bZmpMax_cam, bAngleConstrMax;
 
             // std::cout << "after angle constraint" << std::endl;
-}
+} 
 else{
     // Stack the constraint matrices
     // *****************************
@@ -625,14 +625,20 @@ Eigen::MatrixXd Pthddnew1mg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*mass*9.81;
         Eigen::Vector3d Initial_state_y_updd = Eigen::Vector3d::Zero(3);
         Initial_state_y_updd << current_cam.comPos(1), current_cam.comVel(1), current_cam.zmpPos(1);
 
+        if(!qAllstates){
         costFunctionHcam.block(0,0,N,N) += qstates*0.5*(State_trans_updd_th.transpose())*(State_trans_updd_th);
         costFunctionHcam.block(N,N,N,N) += qstates*0.5*(State_trans_updd_th.transpose())*(State_trans_updd_th);
 
-
         costFunctionFcam.block(0,0,N,1) += qstates*((Init_state_mat_updd_th*Initial_state_updd).transpose()*(State_trans_updd_th)).transpose();
-
         costFunctionFcam.block(N,0,N,1) += qstates*((Init_state_mat_updd_th*Initial_state_y_updd).transpose()*(State_trans_updd_th)).transpose();
+    }
+    else{
+        costFunctionHcam.block(0,0,N,N) += qstates*0.5*(State_trans_updd.transpose())*(State_trans_updd);
+        costFunctionHcam.block(N,N,N,N) += qstates*0.5*(State_trans_updd.transpose())*(State_trans_updd);
 
+        costFunctionFcam.block(0,0,N,1) += qstates*((Init_state_mat_updd*Initial_state_updd).transpose()*(State_trans_updd)).transpose();
+        costFunctionFcam.block(N,0,N,1) += qstates*((Init_state_mat_updd*Initial_state_y_updd).transpose()*(State_trans_updd)).transpose();
+        }
 // std::cout << "qstates*0.5*(State_trans_updd.transpose())*(State_trans_updd); = " << qstates*0.5*(State_trans_updd.transpose())*(State_trans_updd) << std::endl;
 // std::cout << "qstates*((Init_state_mat_updd*Initial_state_y_updd).transpose()*(State_trans_updd)).transpose(); = " 
 // << qstates*((Init_state_mat_updd*Initial_state_y_updd).transpose()*(State_trans_updd)).transpose() << std::endl;
@@ -640,17 +646,18 @@ Eigen::MatrixXd Pthddnew1mg = Eigen::MatrixXd::Ones(N,N)*mpcTimeStep*mass*9.81;
 //********************************************
 ///    \delta U squared terms
 
-    //     costFunctionHcam(N-1,N-1) -= qstates*0.5*qZd_cam;
-    //     costFunctionHcam(2*N-1,2*N-1) -= qstates*0.5*qZd_cam;
-    //     costFunctionFcam(0) -= qstates*xz_dot_cam;
-    //     costFunctionFcam(N) -= qstates*yz_dot_cam;
+    if(qAllstates){
+        costFunctionHcam(N-1,N-1) -= qstates*0.5*qZd_cam;
+        costFunctionHcam(2*N-1,2*N-1) -= qstates*0.5*qZd_cam;
+        costFunctionFcam(0) -= qstates*xz_dot_cam;
+        costFunctionFcam(N) -= qstates*yz_dot_cam;
 
-    //     for(int i = 0; i < 2*N; ++i) {
-    //     for(int j = 0; j < 2*N; ++j) {
-    //         if(j == i-1 || j == i+1) costFunctionHcam(i,j) -= qstates*0.5;
-    //     }
-    // }
-
+        for(int i = 0; i < 2*N; ++i) {
+        for(int j = 0; j < 2*N; ++j) {
+            if(j == i-1 || j == i+1) costFunctionHcam(i,j) -= qstates*0.5;
+        }
+    }
+}
 
     // Solve QP and update state
     // *************************

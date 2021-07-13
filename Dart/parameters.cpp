@@ -8,8 +8,8 @@
 // Times
 const double mpcTimeStep = 0.01; //0.05;
 const double controlTimeStep = 0.01;
-// const double singleSupportDuration = 0.3;
-const double singleSupportDuration = 0.5;
+const double singleSupportDuration = 0.3;
+// const double singleSupportDuration = 0.5;
 const double doubleSupportDuration = 0.2;
 const double predictionTime = 1.0;
 
@@ -36,7 +36,7 @@ const double footConstraintSquareWidth = 0.08;
 const double initalfootConstrainSquarewidthx = 0.08;
 const double initalfootConstrainSquarewidthy = 0.08/2 + 0.2;
 const double deltaXMax = 0.25;
-const double deltaYIn = 0.15;
+const double deltaYIn = 0.075;
 const double deltaYOut = 0.28;
 
 // Cost function weights
@@ -51,6 +51,7 @@ const double qF = 10000000;//100;
 const double qThx = 1; //100  //10 with disturbance
 const double qThy = 1; //100  //10 with disturbance
 const double qstates = 0; //100  //10 with disturbance
+const bool qAllstates = 0;
 
 
 // Kinematic control
@@ -68,7 +69,7 @@ const int M = 3; //ceil(N/(S+D));
 const int doubleSupportSamples = doubleSupportDuration/controlTimeStep;
 const double forceLimit = 100;
 
-const bool VIP_global = 0;
+const bool VIP_global = 1;
 const bool angleConstraint = 0;
 const double forceLimittorques = 100.0;
 const bool termConstr = 0;
